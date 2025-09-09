@@ -26,6 +26,8 @@ dependencies = [
   "uvicorn[standard]>=0.24.0",
   "pydantic>=2.5.0",
   "pydantic-settings>=2.1.0",
+  "personal-ai-llms",
+  "personal-ai-core",
 ]
 
 [project.urls]

@@ -19,3 +19,4 @@ dependencies = [
 
 [tool.hatch.version]
 path = "personal_ai_core/__init__.py"
+
