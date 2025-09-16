@@ -4,7 +4,7 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from personal_ai_llms.gateway import LLMSimpleGateway
+from llm.gateway import LLMSimpleGateway
 
 from .routes import health, llm
 
