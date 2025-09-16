@@ -30,7 +30,64 @@ A privacy-focused personal AI assistant that runs locally first, with optional c
 - `POST /v1/embeddings` - Vectorize text for RAG
 
 ## Quick Start
-*Coming soon - implementation in progress*
+
+### Prerequisites
+- Python 3.11+
+- [Ollama](https://ollama.ai/) installed and running
+- Poetry (recommended) or pip
+
+### 1. Install Ollama
+Download and install Ollama from [ollama.ai](https://ollama.ai/)
+
+### 2. Pull Required Models
+
+#### For Smaller PCs (Laptops/No Dedicated GPU)
+```bash
+# Default model
+ollama pull qwen3:1.7b
+
+# Fallback model
+ollama pull llama3.2:1b
+
+# Coding assistance
+ollama pull qwen2.5-coder:1.5b-instruct
+
+# Reasoning model
+ollama pull deepseek-r1:1.5b
+```
+
+#### For Computers with Dedicated GPUs
+```bash
+# Primary model
+ollama pull qwen3:8b
+
+# Fallback model
+ollama pull llama3.1:8b
+
+# Coding assistance
+ollama pull qwen2.5-coder:7b
+
+# Reasoning model
+ollama pull deepseek-r1:7b
+```
+
+### 3. Clone and Setup
+```bash
+git clone <your-repo-url>
+cd MY-AI
+poetry install  # or pip install -r requirements.txt
+```
+
+### 4. Run the Application
+```bash
+# Development mode
+make dev
+
+# Or with Docker
+make docker-dev
+```
+
+The API will be available at `http://localhost:8000`
 
 ## Security & Privacy
 - ✅ Local processing by default
@@ -46,13 +103,14 @@ A privacy-focused personal AI assistant that runs locally first, with optional c
 - API surfaces and tool allowlists established
 - Tier-2 routing strategy documented
 
-### 🚧 Step 1: API Scaffolding (In Progress)
-- Repository structure: `apps/api`, `packages/core`, `packages/rag`, `packages/llms`, `packages/agents`, `packages/connectors`
+### ✅ Step 1: API Scaffolding (Complete)
+- Repository structure: Single-package format with `app/`, `llm/`, `rag/`, `agents/`, `connectors/`, `core/`
 - Basic `/v1/query` endpoint with placeholder responses
 - Health check endpoint
+- LLM Gateway with Ollama integration
 
-### 📋 Step 2: Local LLM Gateway (Planned)
-- Ollama/vLLM integration for local models
+### ✅ Step 2: Local LLM Gateway (Complete)
+- Ollama integration for local models
 - `/v1/chat` and `/v1/embeddings` endpoints
 - Configurable local/cloud model switching
 
@@ -83,14 +141,23 @@ A privacy-focused personal AI assistant that runs locally first, with optional c
 
 ## Project Structure
 ```
-apps/
-  api/              # Personal API server
-packages/
-  core/             # Shared utilities and types
-  rag/              # Retrieval augmented generation
-  llms/             # LLM gateway and model management
-  agents/           # AI routing and tool orchestration
-  connectors/       # External service integrations
+MY-AI/
+├── app/                    # FastAPI application
+│   ├── main.py            # Application entry point
+│   ├── routes/            # API endpoints
+│   └── services/          # Business logic
+├── llm/                   # LLM functionality
+│   ├── gateway.py         # LLM gateway
+│   ├── local.py           # Ollama client
+│   └── external.py        # External API adapters
+├── rag/                   # Retrieval augmented generation
+├── agents/                # AI routing and tool orchestration
+├── connectors/            # External service integrations
+├── core/                  # Shared utilities and schemas
+├── tests/                 # Test files
+├── pyproject.toml         # Poetry configuration
+├── Makefile              # Development commands
+└── docker-compose.yml    # Local development with Ollama
 ```
 
 ## Development Status
