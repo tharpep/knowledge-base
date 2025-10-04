@@ -6,9 +6,9 @@
 
 ## Step 0 — Planning (Contracts & Guardrails)
 
-* Define **surfaces** (LLM Gateway, Personal API).
-* Fix I/O shapes: Gateway = `/v1/chat`, `/v1/embeddings`; Personal API = `/v1/query`, `/v1/ingest`, `/v1/tools/run` (internal).
-* Tier‑2 routing policy: one Gateway call → `{tool, args}` JSON; validate schema; fallback to `rag_answer` after one clarifying question.
+* Define **unified API surface** (Personal AI Assistant API).
+* Fix I/O shapes: OpenAI-compatible endpoints (`/v1/chat/completions`, `/v1/embeddings`, `/v1/models`) + RAG endpoints (`/v1/query`, `/v1/ingest`, `/v1/stats`).
+* Tier‑2 routing policy: internal LLM Gateway class calls → `{tool, args}` JSON; validate schema; fallback to `rag_answer` after one clarifying question.
 * Allowlist staged: v0 = `rag_answer`, `drive_search`, `web_search`; v1 = `calendar_lookup`; v2 = `spotify_lookup`, `banking_readonly`.
 * Guardrails: no loops; summarization toggleable per request; short‑term memory only at first.
 
@@ -16,44 +16,49 @@
 
 ---
 
-## Step 1 — Scaffolding (Personal API Skeleton)
+## Step 1 — Scaffolding (Unified API Skeleton)
 
-* Repo layout: `apps/api`, `packages/core`, `packages/rag`, `packages/llms`, `packages/agents`, `packages/connectors`.
+* Repo layout: `app/`, `llm/`, `rag/`, `core/`, `agents/`, `connectors/`.
 * `/v1/query` returns placeholder `answer|data`, empty `citations`, empty `transcript`.
 * Add health check endpoint.
 * Stubs for RAG, tools, router.
 
-**Outcome:** Running API scaffold with fixed response envelope.
+**Outcome:** Running unified API scaffold with fixed response envelope.
 
 ---
 
-## Step 2 — Local LLM Gateway
+## Step 2 — LLM Gateway Integration
 
-* Stand up local model service (e.g., Ollama/vLLM) behind Gateway with `/v1/chat` and `/v1/embeddings`.
-* Config flag to swap between local and cloud.
-* No business logic.
+* Integrate LLM Gateway class (AIGateway) into unified API.
+* Support local models (Ollama) and cloud fallback (Purdue GenAI Studio).
+* OpenAI-compatible endpoints (`/v1/chat/completions`, `/v1/embeddings`, `/v1/models`).
+* No business logic in Gateway - pure AI functionality.
 
-**Outcome:** Personal API can call Gateway and get text/embeddings back.
+**Outcome:** Unified API can generate text/embeddings via integrated Gateway.
 
 ---
 
 ## Step 3 — RAG MVP (Read‑Only Corpus)
 
-* **Ingest:** loaders → chunk → embed (via Gateway) → store (SQLite + FAISS/sqlite‑vec).
-* **Query:** embed query → retrieve (BM25 + vectors) → extractive compose with citations.
+* **Ingest:** loaders → chunk → embed (via integrated Gateway) → store (Qdrant vector database).
+* **Query:** embed query → retrieve (similarity search) → generate answer with citations.
+* **Document ingestion:** Documents become searchable knowledge base for RAG queries.
 * Optional summarization if `summarize=true`.
 
-**Outcome:** `/v1/query` returns cited answers from seed corpus. No tools yet.
+**Outcome:** `/v1/query` returns cited answers from ingested document corpus. No tools yet.
 
 ---
 
-## Step 4 — Tier‑2 Router (AI‑Assisted)
+## Step 4 — Smart Chatbot Integration (AI‑Assisted)
 
-* Gateway call: map user text → `{tool, args}` or `rag_answer`.
+* **Intent analysis** - Analyze user messages to determine if RAG context is needed
+* **Smart routing** - Chatbot automatically uses RAG when appropriate
+* **Seamless experience** - User doesn't need to choose between RAG and pure AI
+* Internal Gateway call: map user text → `{tool, args}` or `rag_answer`.
 * Validate plan; invalid → one clarifying question → fallback to `rag_answer`.
 * Optional summarization if flag set.
 
-**Outcome:** Natural queries route correctly; bounded to 1–2 Gateway calls.
+**Outcome:** Intelligent chatbot that automatically uses document context when relevant; bounded to 1–2 internal Gateway calls.
 
 ---
 
@@ -67,14 +72,15 @@
 
 ---
 
-## Step 6 — Memory (Short‑Term First)
+## Step 6 — Hybrid Memory System (RAG + Persistent + Context)
 
-* Add **session memory**: rolling window of recent turns.
-* Store locally (SQLite/disk); purgeable.
-* Use memory as extra context to RAG or router; always cite source.
-* Plan for later long‑term memory (condensed notes/embeddings).
+* **RAG Layer**: Document-based knowledge (already implemented)
+* **Persistent Memory**: Personal facts, preferences, conversation history
+* **Context Awareness**: Current session state and conversation flow
+* **Smart Integration**: Intent analysis determines which memory layer(s) to use
+* Store locally (SQLite/disk); purgeable and configurable.
 
-**Outcome:** Short‑term memory active across a session; design ready for future long‑term condensation.
+**Outcome:** Three-layer memory system active - RAG for documents, persistent for personal facts, context for session flow.
 
 ---
 
@@ -85,6 +91,18 @@
 * Approved diffs → (re)chunk → (re)embed via Gateway → upsert store.
 
 **Outcome:** Knowledge base can be maintained dynamically with provenance and human approval.
+
+---
+
+## Step 8 — Cloud Deployment (Your Own Cloud)
+
+* **Docker deployment** - Build and deploy to your chosen cloud platform
+* **Environment configuration** - Switch between local and cloud settings
+* **Persistent storage** - Document corpus and vector database in cloud
+* **Access anywhere** - Phone, laptop, work computer access
+* **Hybrid workflow** - Local development, cloud production
+
+**Outcome:** Personal AI assistant accessible anywhere while maintaining privacy and control.
 
 ---
 

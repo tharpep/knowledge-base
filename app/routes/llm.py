@@ -46,27 +46,27 @@ async def chat_completions(request: ChatCompletionRequest) -> Dict[str, Any]:
         if request.max_tokens is not None:
             kwargs["max_tokens"] = request.max_tokens
         
-        # Call gateway
-        response = await gateway.chat(
-            messages=messages,
-            model=request.model,
-            **kwargs
+        # Call gateway (AIGateway.chat is synchronous)
+        response = gateway.chat(
+            message=messages[-1]["content"] if messages else "",
+            provider=None,  # Auto-select based on config
+            model=request.model
         )
         
-        # Convert Ollama response to OpenAI format
+        # Convert AIGateway response to OpenAI format
         return {
             "id": f"chatcmpl-{hash(str(messages))}", 
             "object": "chat.completion",
-            "model": request.model or gateway.config.default_model,
+            "model": request.model or gateway.rag_config.model_name,
             "choices": [{
                 "index": 0,
-                "message": response.get("message", {}),
+                "message": {"role": "assistant", "content": response},
                 "finish_reason": "stop"
             }],
             "usage": {
-                "prompt_tokens": response.get("prompt_eval_count", 0),
-                "completion_tokens": response.get("eval_count", 0), 
-                "total_tokens": response.get("prompt_eval_count", 0) + response.get("eval_count", 0)
+                "prompt_tokens": len(str(messages).split()),
+                "completion_tokens": len(response.split()),
+                "total_tokens": len(str(messages).split()) + len(response.split())
             }
         }
         
@@ -95,7 +95,7 @@ async def create_embeddings(request: EmbeddingRequest) -> Dict[str, Any]:
                 "index": 0,
                 "embedding": embedding
             }],
-            "model": request.model or gateway.config.default_model,
+            "model": request.model or gateway.rag_config.model_name,
             "usage": {
                 "prompt_tokens": len(request.input.split()),  # Rough estimate
                 "total_tokens": len(request.input.split())
@@ -112,15 +112,29 @@ async def list_models() -> Dict[str, Any]:
     from ..main import gateway
     
     try:
-        models = await gateway._client.list_models()
+        # Get available providers and their models
+        providers = gateway.get_available_providers()
+        models = []
+        
+        for provider in providers:
+            if provider == "ollama":
+                # Get Ollama models
+                ollama_client = gateway.providers["ollama"]
+                ollama_models = ollama_client.get_available_models()
+                models.extend([{"id": model, "provider": "ollama"} for model in ollama_models])
+            elif provider == "purdue":
+                # Get Purdue models
+                purdue_client = gateway.providers["purdue"]
+                purdue_models = purdue_client.get_available_models()
+                models.extend([{"id": model, "provider": "purdue"} for model in purdue_models])
         
         return {
             "object": "list",
             "data": [
                 {
-                    "id": model,
+                    "id": model["id"],
                     "object": "model",
-                    "owned_by": "local",
+                    "owned_by": model["provider"],
                     "permission": []
                 }
                 for model in models

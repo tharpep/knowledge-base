@@ -1,0 +1,17 @@
+{
+  "v1.0": {
+    "version": "v1.0",
+    "model_name": "qwen3:8b",
+    "base_model": "Qwen/Qwen2.5-7B",
+    "created_at": "2025-01-04T15:00:00",
+    "training_epochs": 3,
+    "batch_size": 8,
+    "learning_rate": 5e-05,
+    "device": "cuda",
+    "training_time_seconds": 180.5,
+    "final_loss": 1.8765,
+    "model_size_mb": 14.2,
+    "notes": "PC training with GPU acceleration",
+    "is_active": true
+  }
+}

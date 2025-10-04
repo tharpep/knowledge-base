@@ -1,1 +1,0 @@
-# Citation and answer composition

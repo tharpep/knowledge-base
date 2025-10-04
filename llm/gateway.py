@@ -1,61 +1,140 @@
-"""LLM Gateway - routes OpenAI-style requests to underlying providers.
-
-This minimal gateway supports a single local provider (Ollama) and exposes
-async methods that the Personal API can call. The gateway is intentionally
-small: it performs routing, structured logging, and simple health checks.
+"""
+Simple AI Gateway
+Routes requests to AI providers (Purdue GenAI Studio, Local Ollama)
+Designed to be easily extended for additional providers
 """
 
-from typing import Any, Dict, List, Optional
-import logging
-
+import os
+import asyncio
+from typing import Dict, Any, Optional, List
+from .purdue_api import PurdueGenAI
 from .local import OllamaClient, OllamaConfig
+from core.utils.config import get_rag_config
+
+# Load environment variables from .env file
+def load_env_file():
+    """Load environment variables from .env file"""
+    env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), '.env')
+    if os.path.exists(env_path):
+        with open(env_path, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    key, value = line.split('=', 1)
+                    os.environ[key.strip()] = value.strip()
+
+load_env_file()
 
 
-logger = logging.getLogger(__name__)
-
-
-class LLMSimpleGateway:
-    """Simple gateway that forwards chat/embeddings to local Ollama.
-
-    Usage:
-        gateway = LLMSimpleGateway()
-        resp = await gateway.chat(messages)
-    """
-
-    def __init__(self, config: Optional[OllamaConfig] = None):
-        self.config = config or OllamaConfig()
-        self._client = OllamaClient(self.config)
-
-    async def __aenter__(self):
-        await self._client.__aenter__()
-        return self
-
-    async def __aexit__(self, exc_type, exc, tb):
-        await self._client.__aexit__(exc_type, exc, tb)
-
-    async def chat(self, messages: List[Dict[str, Any]], model: Optional[str] = None, **kwargs) -> Dict[str, Any]:
-        """Forward a chat request to the configured provider.
-
-        Accepts OpenAI-style messages and returns provider JSON.
+class AIGateway:
+    """Simple gateway for AI requests"""
+    
+    def __init__(self, config: Optional[Dict[str, Any]] = None):
         """
-        logger.info("gateway.chat", extra={"model": model or self.config.default_model, "msg_count": len(messages)})
-        return await self._client.chat(messages=messages, model=model, **kwargs)
-
+        Initialize gateway with configuration
+        
+        Args:
+            config: Dictionary with provider configurations
+                   If None, will try to load from environment variables and config.py
+        """
+        self.providers = {}
+        self.rag_config = get_rag_config()
+        self._setup_providers(config or {})
+    
+    def _setup_providers(self, config: Dict[str, Any]):
+        """Setup available AI providers"""
+        # Setup Purdue provider
+        if "purdue" in config:
+            api_key = config["purdue"].get("api_key")
+            self.providers["purdue"] = PurdueGenAI(api_key)
+        elif os.getenv('PURDUE_API_KEY'):
+            self.providers["purdue"] = PurdueGenAI()
+        
+        # Setup Local Ollama provider
+        if "ollama" in config:
+            ollama_config = OllamaConfig(
+                base_url=config["ollama"].get("base_url", "http://localhost:11434"),
+                default_model=config["ollama"].get("default_model", self.rag_config.model_name)
+            )
+            self.providers["ollama"] = OllamaClient(ollama_config)
+        elif self.rag_config.use_ollama or os.getenv('USE_OLLAMA', 'false').lower() == 'true':
+            ollama_config = OllamaConfig(
+                default_model=self.rag_config.model_name
+            )
+            self.providers["ollama"] = OllamaClient(ollama_config)
+    
+    def chat(self, message: str, provider: Optional[str] = None, model: Optional[str] = None) -> str:
+        """
+        Send a chat message to specified AI provider
+        
+        Args:
+            message: Your message to the AI
+            provider: AI provider to use (auto-selects based on availability)
+            model: Model to use (uses provider default if not specified)
+            
+        Returns:
+            str: AI response
+        """
+        # Auto-select provider based on config
+        if provider is None:
+            if self.rag_config.use_ollama and "ollama" in self.providers:
+                provider = "ollama"
+            elif not self.rag_config.use_ollama and "purdue" in self.providers:
+                provider = "purdue"
+            elif "ollama" in self.providers:
+                provider = "ollama"
+            elif "purdue" in self.providers:
+                provider = "purdue"
+            else:
+                raise Exception("No providers available. Set PURDUE_API_KEY or USE_OLLAMA=true")
+        
+        if provider not in self.providers:
+            available = ", ".join(self.providers.keys())
+            raise Exception(f"Provider '{provider}' not available. Available: {available}")
+        
+        provider_client = self.providers[provider]
+        
+        # Handle different provider types
+        if provider == "ollama":
+            return self._chat_ollama(provider_client, message, model)
+        else:
+            # Use config model for Purdue API if no model specified
+            model = model or self.rag_config.model_name
+            return provider_client.chat(message, model)
+    
+    def _chat_ollama(self, client: OllamaClient, message: str, model: Optional[str] = None) -> str:
+        """Helper to handle Ollama calls"""
+        # Now that OllamaClient.chat() is synchronous, we can call it directly
+        return client.chat(message, model=model)
+    
+    def get_available_providers(self) -> List[str]:
+        """Get list of available providers"""
+        return list(self.providers.keys())
+    
     async def embeddings(self, prompt: str, model: Optional[str] = None) -> Dict[str, Any]:
-        logger.info("gateway.embeddings", extra={"model": model or self.config.default_model})
-        return await self._client.embeddings(prompt=prompt, model=model)
+        """
+        Generate embeddings for text
+        
+        Args:
+            prompt: Text to embed
+            model: Model to use (optional)
+            
+        Returns:
+            Dictionary with embedding data
+        """
+        # Use Ollama for embeddings if available
+        if "ollama" in self.providers:
+            ollama_client = self.providers["ollama"]
+            return await ollama_client.embeddings(prompt, model)
+        else:
+            raise Exception("No embedding provider available")
 
-    async def health_check(self) -> Dict[str, Any]:
-        """Return combined health of gateway and provider(s)."""
-        ok = False
-        details = {}
-        try:
-            ok = await self._client.health_check()
-            details["local"] = {"ok": ok}
-        except Exception as e:
-            details["local"] = {"ok": False, "error": str(e)}
 
-        status = {"ok": ok, "details": details}
-        logger.info("gateway.health", extra=status)
-        return status
-
+if __name__ == "__main__":
+    try:
+        gateway = AIGateway()
+        response = gateway.chat("Hello! What is your name?")
+        print(f"AI Response: {response}")
+        print(f"Available providers: {gateway.get_available_providers()}")
+    except Exception as e:
+        print(f"Error: {e}")

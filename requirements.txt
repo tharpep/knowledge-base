@@ -1,8 +1,22 @@
 # Personal AI Assistant - Dependencies
 # Use 'poetry install' for development, or 'pip install -r requirements.txt' as fallback
 
+# Core API dependencies
 fastapi>=0.104.0
 uvicorn[standard]>=0.24.0
 pydantic>=2.5.0
 pydantic-settings>=2.1.0
 httpx>=0.25.0
+
+# RAG and ML dependencies
+torch>=2.0.0
+transformers>=4.30.0
+sentence-transformers>=2.2.0
+qdrant-client>=1.6.0
+
+# Development dependencies (optional)
+pytest>=7.0.0
+pytest-asyncio>=0.21.0
+ruff>=0.1.0
+black>=23.0.0
+mypy>=1.0.0

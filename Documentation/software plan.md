@@ -6,41 +6,128 @@ This is the **planning artifact** for the Personal AI project. It defines the co
 
 ## 1. Surfaces (APIs)
 
-- **LLM Gateway (AI API)**
+**Personal AI Assistant API (Unified)**
 
-- Endpoints: `/v1/chat` (text generation), `/v1/embeddings` (vectorize)
-- Streaming: **off for v0** (SSE later)
-- Models allowed: **local‑first** (Ollama/vLLM), **external minis** (GPT/Claude) as fallback; **future**: tuned local model (optional)
-- Timeouts & limits (conceptual defaults): **chat: 15s**, **embeddings: 30s**; reject & surface a clear timeout error; caller may retry
-- Notes: **No business logic, no tools. Only language intelligence.**
+- **Smart Chatbot Endpoint:**
+  - `POST /v1/chat/completions` - **Intelligent chatbot** that automatically uses RAG when appropriate
+  - **Intent analysis** - Determines when to use document context vs general knowledge
+  - **Seamless experience** - User doesn't need to choose between RAG and pure AI
+- **OpenAI-Compatible Endpoints:**
+  - `POST /v1/embeddings` - Generate embeddings (OpenAI format)
+  - `GET /v1/models` - List available models
+- **RAG & Document Management:**
+  - `POST /v1/query` - Direct RAG-powered question answering with citations
+  - `POST /v1/ingest` - Ingest documents into knowledge base for RAG
+  - `GET /v1/stats` - RAG system statistics
+- **Health & Monitoring:**
+  - `GET /health/` - Basic health check
+  - `GET /health/detailed` - Detailed health with component status
 
-**Personal API**
-
-- Endpoints: `/v1/query` (answers), `/v1/ingest` (docs), *internal* `/v1/tools/run`
-- Modes (enablement plan): **`rag` first**, then **`tools`**, with **`agent‑lite` optional**
-- Auth: **local dev: none**; **external calls/tools** require **bearer tokens**; add auth middleware when moving beyond local
-- Response envelope: **user‑facing minimal** (`answer` | `data` + `citations`), with **telemetry logged server‑side**; optional `debug=true` returns `transcript`, `usage`, and analytics inline. **Summarization toggle:** default `summarize=false`; caller may set `summarize=true` to request final LLM phrasing.
-
-  - Endpoints:
-    - `POST /v1/query`: main entrypoint; routes to RAG or tool.
-    - `POST /v1/ingest`: ingest new documents into the RAG store.
-    - (Later) `POST /v1/tools/run`: internal/debug for direct tool calls.
-  - Scope: routing, RAG, tools, transcripts, policies.
+**Architecture Notes:**
+- **Single unified API** - No separate LLM Gateway service
+- **Smart routing** - Chatbot automatically decides when to use RAG
+- **Local-first design** - Everything runs in one process
+- **OpenAI compatibility** - Drop-in replacement for OpenAI API
+- **RAG integration** - Documents ingested become searchable knowledge base
+- **Streaming: off for v0** (SSE later)
+- **Models: local-first** (Ollama), **external fallback** (Purdue GenAI Studio)
+- **Auth: local dev none**; **external connectors** require bearer tokens
+- **Response envelope:** minimal (`answer` + `citations`), optional `debug=true` for transcripts
 
 ---
 
-## 2. Routing stance (Tier‑2)
+## 2. Smart Chatbot Routing (Tier‑2)
 
-- Router makes **one call** to LLM Gateway per request.
-- Must output strict JSON: `{ tool: str, args: {...} }`.
-- Allowlist controls which tools are eligible.
-- **Default tool:** `rag_answer` when intent is knowledge lookup or when uncertainty remains.
-- **Uncertainty rule:** ask **one clarifying question**; if still uncertain, **fallback to `rag_answer`**. No guessing.
+- **Intent Analysis** - Analyze user messages to determine if RAG context is needed
+- **Automatic RAG Integration** - Chatbot seamlessly uses document context when appropriate
+- **Smart Routing Logic:**
+  - **General questions** ("What's the weather?") → Pure AI response
+  - **Knowledge questions** ("What did I work on?") → RAG + AI response with citations
+  - **Uncertainty** → Ask one clarifying question, then fallback to RAG
+- **Internal routing** - No separate LLM Gateway service calls
+- **Direct integration** - RAG system calls LLM Gateway class methods directly
+- **Tool routing** - Must output strict JSON: `{ tool: str, args: {...} }`
+- **Allowlist controls** which tools are eligible
+- **Default tool:** `rag_answer` when intent is knowledge lookup or when uncertainty remains
 - **No loops.** Optional final LLM call to **summarize/phrase** output. Default = **off** (return raw RAG/tool results). Toggleable with per‑request flag `summarize=true|false`.
 
 ---
 
-## 3. Planned Tool Allowlist (initial)
+## 3. Hybrid Memory System (RAG + Persistent Memory + Context)
+
+**Three-Layer Knowledge Architecture:**
+
+**1. RAG (Document-Based Knowledge):**
+- **Purpose**: Search through ingested documents when relevant
+- **Content**: Your notes, emails, documents, project files, research papers
+- **Benefits**: Always up-to-date, can cite sources, handles large information
+- **Use Cases**: "What did I work on yesterday?", "Summarize my meeting notes"
+
+**2. Persistent Memory (Personal Facts & History):**
+- **Purpose**: Store information about you across sessions
+- **Content**: Personal facts, preferences, conversation history, ongoing projects
+- **Benefits**: Remembers you, builds relationship, maintains context
+- **Use Cases**: "Continue our discussion about RAG", "What are my current projects?"
+
+**3. Context Awareness (Current Session):**
+- **Purpose**: Maintain conversation flow and immediate context
+- **Content**: Current conversation state, recent messages, active topics
+- **Benefits**: Natural conversation flow, immediate relevance
+- **Use Cases**: "What were we just discussing?", "Build on that idea"
+
+**Smart Integration:**
+- **Intent analysis** determines which knowledge layer(s) to use
+- **Seamless experience** - user doesn't need to specify knowledge source
+- **Hybrid responses** - combines multiple knowledge sources when relevant
+
+---
+
+## 4. Local CLI Interaction (No API Required)
+
+**Run Script - Direct Local Interaction:**
+- **`python run demo`** - Interactive CLI without starting API server
+- **RAG Demo (Interactive)** - Ask questions directly using your documents
+- **Tuning Demo** - Manage and test fine-tuned models
+- **API Demo** - Start the FastAPI server for web/frontend access
+
+**Benefits of CLI Mode:**
+- **No server overhead** - Direct Python execution
+- **Faster iteration** - Quick testing and debugging
+- **Local privacy** - Everything stays on your machine
+- **Development friendly** - Perfect for testing features
+
+**Use Cases:**
+- **Development** - Test RAG queries, tune models, debug issues
+- **Quick questions** - Ask about your documents without starting a server
+- **Model testing** - Try different models and configurations
+- **Documentation** - Learn how the system works
+
+---
+
+## 5. Deployment Strategy (Local + Your Own Cloud)
+
+**Local Development:**
+- **Hardware-aware** - Automatically uses appropriate models (laptop vs dedicated GPU)
+- **Fast iteration** - Quick testing and development
+- **Privacy** - Everything stays on your machine
+- **CLI access** - Direct interaction via `python run demo`
+
+**Your Own Cloud Production:**
+- **Deploy anywhere** - AWS, GCP, Azure, DigitalOcean, VPS, etc.
+- **Access anywhere** - Phone, laptop, work computer
+- **More power** - Better hardware than your laptop
+- **Always available** - 24/7 access to your AI assistant
+- **Still private** - Your data, your control, your cloud
+
+**Deployment Options:**
+- **Docker** - `docker build` and deploy to any cloud
+- **Cloud platforms** - Railway, Render, Fly.io for easy deployment
+- **VPS** - Your own server for maximum control
+- **Hybrid** - Local development, cloud production
+
+---
+
+## 6. Planned Tool Allowlist (initial)
 
 **Phase v0 (launch, read‑only):**
 - `rag_answer` — default knowledge lookup with citations
@@ -61,12 +148,13 @@ This is the **planning artifact** for the Personal AI project. It defines the co
 ## 4. Tool Contract Templates (fill one per tool)
 
 ### A) `rag_answer`
-- **Purpose:** Retrieve and cite answers from the private corpus.
+- **Purpose:** Retrieve and cite answers from the ingested document corpus (RAG knowledge base).
 - **Inputs (typed):** `query: str` · `top_k: int (default 5)` · `filters: dict (optional)`
 - **Output (typed):** `answer_snippets: [ {chunk_id, doc_uri, text, score} ]` · `citations: [doc_uri]`
 - **Side effects:** none (read‑only)
 - **Idempotent:** yes
 - **Safety notes:** always return citations; no model synthesis when `summarize=false`.
+- **Document ingestion:** Documents ingested via `/v1/ingest` become part of the searchable RAG corpus.
 
 ### B) `drive_search` (v1)
 - **Purpose:** Find files in connected drive(s).
@@ -210,9 +298,11 @@ This is the **planning artifact** for the Personal AI project. It defines the co
 - **Secrets handling:** env vars or vault; never log secrets.
 - **AuthZ:** default-deny tool allowlist; per-user/project scopes.
 - **Memory:**
-  - **Short-term memory:** running window of the current session.
-  - **Future long-term memory:** condensed notes and embeddings stored locally; compaction on thresholds.
-  - User can purge or reset memory at any time.
+  - **RAG Memory:** Document-based knowledge stored in vector database (Qdrant)
+  - **Persistent Memory:** Personal facts, preferences, conversation history stored locally (SQLite)
+  - **Context Memory:** Current session state and conversation flow (in-memory)
+  - **Hybrid Integration:** Smart routing between memory layers based on intent analysis
+  - User can purge or reset any memory layer at any time.
 
 ---
 

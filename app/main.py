@@ -4,16 +4,16 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from llm.gateway import LLMSimpleGateway
+from llm.gateway import AIGateway
 
-from .routes import health, llm
+from .routes import health, llm, query
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Global gateway instance
-gateway: LLMSimpleGateway = None
+gateway: AIGateway = None
 
 
 @asynccontextmanager
@@ -23,8 +23,8 @@ async def lifespan(app: FastAPI):
     
     # Startup
     logger.info("Starting Personal AI Assistant API")
-    gateway = LLMSimpleGateway()
-    logger.info("LLM Gateway initialized")
+    gateway = AIGateway()
+    logger.info("AI Gateway initialized")
     
     yield
     
@@ -49,6 +49,7 @@ def create_app() -> FastAPI:
     # Include routes
     app.include_router(health.router, prefix="/health", tags=["health"])
     app.include_router(llm.router, prefix="/v1", tags=["llm"])
+    app.include_router(query.router, prefix="/v1", tags=["query"])
     
     return app
 

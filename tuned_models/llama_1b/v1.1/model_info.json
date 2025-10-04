@@ -1,0 +1,13 @@
+{
+  "model_name": "llama3.2:1b",
+  "device": "cpu",
+  "num_parameters": 1000000,
+  "trainable_parameters": 1000000,
+  "model_size_mb": 1.2,
+  "version": "v1.1",
+  "training_epochs": 1,
+  "batch_size": 1,
+  "learning_rate": 5e-05,
+  "final_loss": 2.1234,
+  "training_time_seconds": 42.8
+}
