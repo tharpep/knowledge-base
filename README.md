@@ -73,7 +73,7 @@ ollama pull deepseek-r1:7b
 
 ### 3. Clone and Setup
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/yourusername/MY-AI.git
 cd MY-AI
 poetry install  # or pip install -r requirements.txt
 ```
@@ -114,10 +114,11 @@ The API will be available at `http://localhost:8000`
 - `/v1/chat` and `/v1/embeddings` endpoints
 - Configurable local/cloud model switching
 
-### 📋 Step 3: RAG MVP (Planned)
+### ✅ Step 3: RAG MVP (Complete)
 - Document ingestion and chunking pipeline
-- SQLite + FAISS/sqlite-vec storage
+- Qdrant vector storage with persistent collections
 - Cited answer retrieval from personal corpus
+- Interactive demos and CLI tools
 
 ### 📋 Step 4: AI Router (Planned)
 - Natural language to `{tool, args}` JSON routing
@@ -161,7 +162,38 @@ MY-AI/
 ```
 
 ## Development Status
-🚧 **Step 0 Complete, Step 1 In Progress** - See `/Documentation/software contract/` for detailed specifications
+✅ **Steps 0-3 Complete** - Core API, LLM Gateway, and RAG system fully implemented  
+🚧 **Step 4 In Progress** - AI Router for natural language to tool routing  
+📋 **Steps 5-7 Planned** - Tool Integration, Memory System, Dynamic Corpus
+
+See `/Documentation/` for detailed specifications and development roadmap.
+
+## Quick Demo
+Try the system locally without setting up the full API:
+
+```bash
+# Interactive RAG demo
+python run demo
+
+# Direct LLM chat
+python run demo  # Choose option 2
+
+# Run tests
+python run test all
+```
 
 ## Contributing
 This is a personal project following a structured development path. See documentation for implementation details and architecture decisions.
+
+### Development Commands
+```bash
+make install    # Install dependencies
+make test       # Run all tests
+make lint       # Check code quality
+make format     # Format code
+make dev        # Start development server
+make docker-dev # Run with Docker
+```
+
+## License
+This project is open source. Please check the LICENSE file for details.
