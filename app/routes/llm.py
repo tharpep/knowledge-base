@@ -1,4 +1,17 @@
-"""LLM API routes - OpenAI-compatible endpoints"""
+"""
+LLM API routes - OpenAI-compatible endpoints
+
+This module provides OpenAI-compatible endpoints for:
+- Chat completions: /v1/chat/completions (main chat endpoint)
+- Embeddings: /v1/embeddings (text embeddings)
+- Models: /v1/models (list available models)
+
+All endpoints include:
+- Request ID generation for tracing
+- Proper error handling with HTTP status codes
+- Structured error responses
+- Token usage estimation
+"""
 
 import uuid
 from typing import Any, Dict, List, Optional
@@ -7,6 +20,8 @@ from pydantic import BaseModel, Field
 
 router = APIRouter()
 
+
+# ===== Request/Response Models =====
 
 class ChatMessage(BaseModel):
     """OpenAI-style chat message."""
@@ -27,6 +42,9 @@ class EmbeddingRequest(BaseModel):
     """OpenAI-compatible embedding request."""
     input: str = Field(..., description="Text to embed")
     model: Optional[str] = Field(None, description="Model to use for embeddings")
+
+
+# ===== Chat Completions Endpoint =====
 
 
 @router.post("/chat/completions")
@@ -184,6 +202,8 @@ async def chat_completions(request: ChatCompletionRequest) -> Dict[str, Any]:
         )
 
 
+# ===== Embeddings Endpoint =====
+
 @router.post("/embeddings")
 async def create_embeddings(request: EmbeddingRequest) -> Dict[str, Any]:
     """OpenAI-compatible embeddings endpoint."""
@@ -286,6 +306,8 @@ async def create_embeddings(request: EmbeddingRequest) -> Dict[str, Any]:
             }
         )
 
+
+# ===== Models Endpoint =====
 
 @router.get("/models")
 async def list_models() -> Dict[str, Any]:

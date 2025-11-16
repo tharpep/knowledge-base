@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from llm.gateway import AIGateway
 
-from .routes import health, llm, query
+from .routes import health, llm, query, ingest
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -49,7 +49,8 @@ def create_app() -> FastAPI:
     # Include routes
     app.include_router(health.router, prefix="/health", tags=["health"])
     app.include_router(llm.router, prefix="/v1", tags=["llm"])
-    app.include_router(query.router, prefix="/v1", tags=["query"])
+    app.include_router(query.router, prefix="/v1", tags=["rag"])
+    app.include_router(ingest.router, prefix="/v1", tags=["ingest"])
     
     return app
 
