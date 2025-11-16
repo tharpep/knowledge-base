@@ -95,6 +95,25 @@ async def lifespan(app: FastAPI):
     gateway = AIGateway()
     logger.info("AI Gateway initialized")
     
+    # Initialize tool registry and register default tools
+    try:
+        from agents.tool_registry import get_registry
+        from agents.tools.rag_answer import RAGAnswerTool
+        
+        registry = get_registry()
+        
+        # Register RAG answer tool (default tool)
+        rag_tool = RAGAnswerTool()
+        registry.register(rag_tool)
+        
+        # Set initial allowlist (v0 tools: rag_answer)
+        registry.set_allowlist(["rag_answer"])
+        
+        logger.info("Tool registry initialized with RAG answer tool")
+    except Exception as e:
+        logger.error(f"Failed to initialize tool registry: {e}")
+        # Continue anyway - tools are optional
+    
     yield
     
     # Shutdown
