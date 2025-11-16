@@ -66,14 +66,16 @@ class AIGateway:
             )
             self.providers["ollama"] = OllamaClient(ollama_config)
     
-    def chat(self, message: str, provider: Optional[str] = None, model: Optional[str] = None) -> str:
+    def chat(self, message: str, provider: Optional[str] = None, model: Optional[str] = None, messages: Optional[List[Dict[str, str]]] = None) -> str:
         """
         Send a chat message to specified AI provider
         
         Args:
-            message: Your message to the AI
+            message: Your message to the AI (single string, for backward compatibility)
             provider: AI provider to use (auto-selects based on availability)
             model: Model to use (uses provider default if not specified)
+            messages: Optional list of message dicts with 'role' and 'content' keys
+                     If provided, this takes precedence over 'message' parameter
             
         Returns:
             str: AI response
@@ -100,16 +102,20 @@ class AIGateway:
         
         # Handle different provider types
         if provider == "ollama":
-            return self._chat_ollama(provider_client, message, model)
+            return self._chat_ollama(provider_client, message, model, messages)
         else:
             # Use config model if no model specified
             model = model or self.config.model_name
+            # For non-Ollama providers, use message string for now
             return provider_client.chat(message, model)
     
-    def _chat_ollama(self, client: OllamaClient, message: str, model: Optional[str] = None) -> str:
+    def _chat_ollama(self, client: OllamaClient, message: str, model: Optional[str] = None, messages: Optional[List[Dict[str, str]]] = None) -> str:
         """Helper to handle Ollama calls"""
-        # Now that OllamaClient.chat() is synchronous, we can call it directly
-        return client.chat(message, model=model)
+        # If messages array provided, use it; otherwise use single message string
+        if messages:
+            return client.chat(messages, model=model)
+        else:
+            return client.chat(message, model=model)
     
     def get_available_providers(self) -> List[str]:
         """Get list of available providers"""
