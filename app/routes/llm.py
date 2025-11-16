@@ -51,10 +51,13 @@ class EmbeddingRequest(BaseModel):
 @router.post("/chat/completions")
 async def chat_completions(request: ChatCompletionRequest) -> Dict[str, Any]:
     """OpenAI-compatible chat completions endpoint."""
+    import time
     from ..main import gateway
+    from ..db import log_request
     
     # Generate request ID for tracing
     request_id = f"req_{uuid.uuid4().hex[:12]}"
+    start_time = time.time()
     
     try:
         # Validate messages
@@ -160,6 +163,28 @@ async def chat_completions(request: ChatCompletionRequest) -> Dict[str, Any]:
         # Get model name (use requested model or default)
         model_used = request.model or gateway.config.model_name
         
+        # Calculate response time
+        response_time_ms = (time.time() - start_time) * 1000
+        
+        # Log request to database
+        try:
+            log_request(
+                request_id=request_id,
+                endpoint="/v1/chat/completions",
+                method="POST",
+                status_code=200,
+                provider=provider_used,
+                model=model_used,
+                response_time_ms=response_time_ms,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                total_tokens=total_tokens
+            )
+        except Exception as e:
+            # Don't fail the request if logging fails
+            import logging
+            logging.getLogger(__name__).error(f"Failed to log request: {e}")
+        
         # Convert AIGateway response to OpenAI format
         return {
             "id": f"chatcmpl-{uuid.uuid4().hex[:12]}",
@@ -180,11 +205,38 @@ async def chat_completions(request: ChatCompletionRequest) -> Dict[str, Any]:
             "request_id": request_id
         }
         
-    except HTTPException:
+    except HTTPException as e:
+        # Log error request
+        response_time_ms = (time.time() - start_time) * 1000
+        try:
+            log_request(
+                request_id=request_id,
+                endpoint="/v1/chat/completions",
+                method="POST",
+                status_code=e.status_code,
+                response_time_ms=response_time_ms,
+                error_type="HTTPException",
+                error_message=str(e.detail)
+            )
+        except Exception:
+            pass  # Don't fail if logging fails
         # Re-raise HTTP exceptions (already properly formatted)
         raise
     except ValueError as e:
         # Validation errors
+        response_time_ms = (time.time() - start_time) * 1000
+        try:
+            log_request(
+                request_id=request_id,
+                endpoint="/v1/chat/completions",
+                method="POST",
+                status_code=422,
+                response_time_ms=response_time_ms,
+                error_type="ValueError",
+                error_message=str(e)
+            )
+        except Exception:
+            pass
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail={
@@ -198,6 +250,19 @@ async def chat_completions(request: ChatCompletionRequest) -> Dict[str, Any]:
         )
     except ConnectionError as e:
         # Connection errors (provider unavailable)
+        response_time_ms = (time.time() - start_time) * 1000
+        try:
+            log_request(
+                request_id=request_id,
+                endpoint="/v1/chat/completions",
+                method="POST",
+                status_code=503,
+                response_time_ms=response_time_ms,
+                error_type="ConnectionError",
+                error_message=str(e)
+            )
+        except Exception:
+            pass
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail={
@@ -211,6 +276,19 @@ async def chat_completions(request: ChatCompletionRequest) -> Dict[str, Any]:
         )
     except TimeoutError as e:
         # Timeout errors
+        response_time_ms = (time.time() - start_time) * 1000
+        try:
+            log_request(
+                request_id=request_id,
+                endpoint="/v1/chat/completions",
+                method="POST",
+                status_code=504,
+                response_time_ms=response_time_ms,
+                error_type="TimeoutError",
+                error_message=str(e)
+            )
+        except Exception:
+            pass
         raise HTTPException(
             status_code=status.HTTP_504_GATEWAY_TIMEOUT,
             detail={
@@ -225,6 +303,23 @@ async def chat_completions(request: ChatCompletionRequest) -> Dict[str, Any]:
     except Exception as e:
         # Check if error is about provider availability
         error_msg = str(e)
+        response_time_ms = (time.time() - start_time) * 1000
+        
+        # Log error
+        try:
+            status_code = 503 if ("not available" in error_msg.lower() or "no providers" in error_msg.lower()) else 500
+            log_request(
+                request_id=request_id,
+                endpoint="/v1/chat/completions",
+                method="POST",
+                status_code=status_code,
+                response_time_ms=response_time_ms,
+                error_type=type(e).__name__,
+                error_message=error_msg
+            )
+        except Exception:
+            pass
+        
         if "not available" in error_msg.lower() or "no providers" in error_msg.lower():
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
