@@ -11,23 +11,39 @@ A privacy-focused personal AI assistant that runs locally first, with optional c
 - **Privacy-Centric**: Your data stays local by default
 
 ## Core Features
-### Phase 0 (MVP)
-- 📚 **RAG Answer**: Search and cite from your personal document corpus
-- 🔍 **Drive Search**: Find files across connected storage
-- 🌐 **Web Search**: Fetch public references with attribution
 
-### Phase 1 (Planned)
+### Current Features (Implemented)
+- 📚 **RAG Answer Tool**: Search and cite from your personal document corpus
+- 💬 **OpenAI-Compatible Chat**: `/v1/chat/completions` with provider/model selection
+- 📊 **Request Logging**: SQLite database for request tracking and debugging
+- 🔧 **Tool Foundation**: Extensible tool system with registry and execution engine
+- 📝 **Document Ingestion**: Add documents to RAG knowledge base
+- 🔍 **Health Monitoring**: Health check endpoints with detailed status
+
+### Planned Features
+- 🌐 **Web Search Tool**: Fetch public references with attribution
+- 📁 **Drive Search Tool**: Find files across connected storage
 - 📅 **Calendar Integration**: Read events and scheduling data
-- 🎵 **Spotify Lookup**: Access playlists and music data
-
-### Phase 2 (Future)
-- 💰 **Banking Read-Only**: Financial insights (optional, secure)
+- 🎵 **Spotify Lookup**: Access playlists and music data (v2)
+- 💰 **Banking Read-Only**: Financial insights (v2, optional, secure)
 
 ## API Endpoints
-- `POST /v1/query` - Main query interface
-- `POST /v1/ingest` - Add documents to knowledge base
-- `POST /v1/chat` - Direct LLM gateway (local models)
-- `POST /v1/embeddings` - Vectorize text for RAG
+
+### OpenAI-Compatible Endpoints
+- `POST /v1/chat/completions` - Chat completions with provider/model override support
+- `POST /v1/embeddings` - Generate text embeddings
+- `GET /v1/models` - List available models and providers
+
+### RAG & Document Management
+- `POST /v1/query` - RAG-powered question answering with citations
+- `POST /v1/ingest` - Ingest documents into knowledge base
+- `GET /v1/stats` - RAG system statistics
+
+### Health & Monitoring
+- `GET /health/` - Basic health check
+- `GET /health/detailed` - Detailed health with component status
+
+**Note:** All endpoints include request ID tracking for debugging and tracing.
 
 ## Quick Start
 
@@ -129,12 +145,70 @@ make docker-dev
 
 The API will be available at `http://localhost:8000`
 
+### 7. API Usage Examples
+
+#### Chat Completions (OpenAI-Compatible)
+```bash
+curl -X POST http://localhost:8000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "messages": [{"role": "user", "content": "Hello!"}],
+    "provider": "ollama",
+    "model": "llama3.2:1b"
+  }'
+```
+
+#### RAG Query
+```bash
+curl -X POST http://localhost:8000/v1/query \
+  -H "Content-Type: application/json" \
+  -d '{
+    "question": "What is Docker?",
+    "context_limit": 5
+  }'
+```
+
+#### Document Ingestion
+```bash
+curl -X POST "http://localhost:8000/v1/ingest?folder_path=./data/documents"
+```
+
+#### List Available Models
+```bash
+curl http://localhost:8000/v1/models
+```
+
+All responses include a `request_id` field for tracing. Check `./data/api_logs.db` for request history.
+
+## Features
+
+### API Features
+- **OpenAI-Compatible**: Drop-in replacement for OpenAI API endpoints
+- **Provider Override**: Specify which AI provider to use per request
+- **Request Tracking**: All requests logged with unique IDs for debugging
+- **Structured Errors**: Proper HTTP status codes and error messages
+- **Token Estimation**: Rough token counting for usage tracking
+
+### Tool System
+- **Extensible Architecture**: Easy to add new tools by inheriting `BaseTool`
+- **Tool Registry**: Centralized tool management with allowlist security
+- **Parameter Validation**: Automatic validation before tool execution
+- **Execution Tracking**: Performance metrics and error handling
+
+### Request Logging
+- **SQLite Database**: All API requests stored locally in `./data/api_logs.db`
+- **Request IDs**: Every request gets a unique ID for tracing
+- **Performance Metrics**: Response times tracked for all endpoints
+- **Error Tracking**: Failed requests logged with error details
+
 ## Security & Privacy
 - ✅ Local processing by default
-- ✅ No secrets in logs
+- ✅ No secrets in logs (PII redaction)
 - ✅ Parameterized queries only
 - ✅ User data stays on your machine
 - ✅ Optional cloud features require explicit consent
+- ✅ Request logging stored locally (SQLite)
+- ✅ Tool allowlist for security control
 
 ## Development Roadmap
 
@@ -151,8 +225,9 @@ The API will be available at `http://localhost:8000`
 
 ### ✅ Step 2: Local LLM Gateway (Complete)
 - Ollama integration for local models
-- `/v1/chat` and `/v1/embeddings` endpoints
+- OpenAI-compatible `/v1/chat/completions` and `/v1/embeddings` endpoints
 - Configurable local/cloud model switching
+- Provider override support in requests
 
 ### ✅ Step 3: RAG MVP (Complete)
 - Document ingestion and chunking pipeline
@@ -160,22 +235,32 @@ The API will be available at `http://localhost:8000`
 - Cited answer retrieval from personal corpus
 - Interactive demos and CLI tools
 
-### 📋 Step 4: AI Router (Planned)
-- Natural language to `{tool, args}` JSON routing
-- Schema validation and clarification flows
-- Bounded LLM call counts (1-2 per request)
+### ✅ Step 4: API Enhancements (Complete)
+- **Route Organization**: Separated endpoints into logical modules (llm, query, ingest, health)
+- **Error Handling**: Comprehensive HTTP status codes and structured error responses
+- **Request Logging**: SQLite database for request tracking and debugging
+- **Provider Selection**: Chat endpoint supports provider/model override
+- **Request IDs**: All requests tracked with unique IDs for tracing
 
-### 📋 Step 5: Tool Integration (Planned)
-- Drive search, web search, calendar lookup
-- Read-only tool implementations
+### ✅ Step 5: Tool Foundation (Complete)
+- **Base Tool Interface**: Abstract class for all tools
+- **Tool Registry**: Centralized tool management with allowlist support
+- **Tool Execution Engine**: Validation, execution, and error handling
+- **RAG Answer Tool**: First tool implementation for RAG-powered queries
+- **Tool Router**: Intent analysis and tool selection (basic heuristic routing)
+
+### 📋 Step 6: Tool Integration (In Progress)
+- Web search tool implementation
+- Drive search tool implementation
+- Calendar lookup tool implementation
 - Tool execution transcripts and logging
 
-### 📋 Step 6: Memory System (Planned)
+### 📋 Step 7: Memory System (Planned)
 - Short-term session memory
 - Local storage with purge capabilities
 - Foundation for future long-term memory
 
-### 📋 Step 7: Dynamic Corpus (Future)
+### 📋 Step 8: Dynamic Corpus (Future)
 - AI-proposed document updates
 - Human approval workflow
 - Provenance tracking and diff management
@@ -184,27 +269,53 @@ The API will be available at `http://localhost:8000`
 ```
 MY-AI/
 ├── app/                    # FastAPI application
-│   ├── main.py            # Application entry point
-│   ├── routes/            # API endpoints
-│   └── services/          # Business logic
+│   ├── main.py            # Application entry point with lifecycle management
+│   ├── db.py              # SQLite request logging database
+│   └── routes/            # API endpoint modules
+│       ├── health.py      # Health check endpoints
+│       ├── llm.py         # OpenAI-compatible LLM endpoints
+│       ├── query.py       # RAG query endpoints
+│       └── ingest.py      # Document ingestion endpoints
 ├── llm/                   # LLM functionality
-│   ├── gateway.py         # LLM gateway
+│   ├── gateway.py         # AI Gateway (routes to providers)
 │   ├── local.py           # Ollama client
-│   └── external.py        # External API adapters
+│   └── purdue_api.py      # Purdue GenAI Studio client
 ├── rag/                   # Retrieval augmented generation
+│   ├── rag_setup.py       # RAG system orchestrator
+│   ├── vector_store.py    # Qdrant vector database operations
+│   └── document_ingester.py  # Document processing pipeline
 ├── agents/                # AI routing and tool orchestration
-├── connectors/            # External service integrations
+│   ├── base_tool.py       # Base tool interface
+│   ├── tool_registry.py   # Tool management and execution
+│   ├── router.py          # Intent analysis and routing
+│   └── tools/             # Tool implementations
+│       └── rag_answer.py  # RAG answer tool
+├── connectors/            # External service integrations (stubs)
 ├── core/                  # Shared utilities and schemas
+│   ├── config.py          # Unified configuration (Pydantic Settings)
+│   └── schemas/           # Pydantic models
+├── cli/                   # Command-line interface
+│   ├── main.py            # CLI entry point (Typer)
+│   └── commands/          # CLI command modules
 ├── tests/                 # Test files
+├── data/                  # Data directory
+│   ├── documents/         # Source documents for RAG
+│   └── api_logs.db        # SQLite request logs (auto-created)
 ├── pyproject.toml         # Poetry configuration
-├── Makefile              # Development commands
-└── docker-compose.yml    # Local development with Ollama
+└── docker-compose.yml     # Local development with Ollama
 ```
 
 ## Development Status
-✅ **Steps 0-3 Complete** - Core API, LLM Gateway, and RAG system fully implemented  
-🚧 **Step 4 In Progress** - AI Router for natural language to tool routing  
-📋 **Steps 5-7 Planned** - Tool Integration, Memory System, Dynamic Corpus
+✅ **Steps 0-5 Complete** - Core API, LLM Gateway, RAG system, API enhancements, and tool foundation fully implemented  
+🚧 **Step 6 In Progress** - Tool implementations (web_search, drive_search, calendar_lookup)  
+📋 **Steps 7-8 Planned** - Memory System, Dynamic Corpus
+
+### Recent Updates
+- ✅ **Request Logging**: All API requests logged to SQLite for debugging and analytics
+- ✅ **Enhanced Error Handling**: Proper HTTP status codes and structured error responses
+- ✅ **Provider Override**: Chat endpoint supports explicit provider/model selection
+- ✅ **Tool System**: Extensible tool foundation with registry and execution engine
+- ✅ **Route Organization**: Clean separation of endpoints into logical modules
 
 See `/Documentation/` for detailed specifications and development roadmap.
 
@@ -258,6 +369,44 @@ myai --install-completion powershell
 
 # For fish
 myai --install-completion fish | source
+```
+
+## Configuration
+
+Configuration is managed through `core/config.py` and `.env` file:
+
+```bash
+# Example .env file
+PROVIDER_TYPE=local
+PROVIDER_NAME=ollama
+MODEL_DEFAULT=llama3.2:1b
+OLLAMA_BASE_URL=http://localhost:11434
+PURDUE_API_KEY=your_key_here  # Optional
+```
+
+View current configuration:
+```bash
+myai config
+```
+
+## Request Logging
+
+All API requests are automatically logged to a SQLite database at `./data/api_logs.db`. This includes:
+- Request ID, timestamp, endpoint, method
+- Status code, response time
+- Provider and model used (for LLM endpoints)
+- Token usage (for chat endpoints)
+- Error information (if any)
+
+Query the logs programmatically:
+```python
+from app.db import get_request_by_id, get_recent_requests
+
+# Get specific request
+request = get_request_by_id("req_abc123")
+
+# Get recent requests
+recent = get_recent_requests(limit=100)
 ```
 
 ## Contributing
