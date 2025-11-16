@@ -32,6 +32,7 @@ class ChatMessage(BaseModel):
 class ChatCompletionRequest(BaseModel):
     """OpenAI-compatible chat completion request."""
     model: Optional[str] = Field(None, description="Model to use for completion")
+    provider: Optional[str] = Field(None, description="AI provider to use (e.g., 'ollama', 'purdue'). Auto-selects if not specified")
     messages: List[ChatMessage] = Field(..., description="List of messages")
     temperature: Optional[float] = Field(None, ge=0.0, le=2.0, description="Sampling temperature")
     top_p: Optional[float] = Field(None, ge=0.0, le=1.0, description="Top-p sampling")
@@ -101,7 +102,25 @@ async def chat_completions(request: ChatCompletionRequest) -> Dict[str, Any]:
         # Convert Pydantic messages to dicts
         messages = [{"role": msg.role, "content": msg.content} for msg in request.messages]
         
-        # Prepare kwargs for optional parameters
+        # Validate provider if specified
+        provider_used = None
+        if request.provider:
+            available_providers = gateway.get_available_providers()
+            if request.provider not in available_providers:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail={
+                        "error": {
+                            "message": f"Provider '{request.provider}' not available. Available providers: {', '.join(available_providers)}",
+                            "type": "invalid_request_error",
+                            "code": "invalid_provider"
+                        },
+                        "request_id": request_id
+                    }
+                )
+            provider_used = request.provider
+        
+        # Prepare kwargs for optional parameters (for future use when gateway supports them)
         kwargs = {}
         if request.temperature is not None:
             kwargs["temperature"] = request.temperature
@@ -115,10 +134,22 @@ async def chat_completions(request: ChatCompletionRequest) -> Dict[str, Any]:
         # Message array support is ready in gateway, but keeping single turn for now
         response = gateway.chat(
             message=messages[-1]["content"],
-            provider=None,  # Auto-select based on config
+            provider=provider_used,  # Use specified provider or auto-select
             model=request.model,
             messages=messages  # Pass full history for future use
         )
+        
+        # Determine which provider was actually used
+        # Note: If provider_used is None, gateway auto-selected based on config/fallback
+        # We'll use the first available provider as an approximation
+        if provider_used is None:
+            available_providers = gateway.get_available_providers()
+            if available_providers:
+                # Use config provider if available, otherwise first available
+                config_provider = gateway.config.provider_name
+                provider_used = config_provider if config_provider in available_providers else available_providers[0]
+            else:
+                provider_used = "auto"  # Fallback if no providers available (shouldn't happen)
         
         # Rough token estimation (word count * 1.3)
         prompt_text = " ".join([msg["content"] for msg in messages])
@@ -126,12 +157,16 @@ async def chat_completions(request: ChatCompletionRequest) -> Dict[str, Any]:
         completion_tokens = int(len(response.split()) * 1.3)
         total_tokens = prompt_tokens + completion_tokens
         
+        # Get model name (use requested model or default)
+        model_used = request.model or gateway.config.model_name
+        
         # Convert AIGateway response to OpenAI format
         return {
             "id": f"chatcmpl-{uuid.uuid4().hex[:12]}",
             "object": "chat.completion",
             "created": int(__import__("time").time()),
-            "model": request.model or gateway.config.model_name,
+            "model": model_used,
+            "provider": provider_used,  # Include provider info
             "choices": [{
                 "index": 0,
                 "message": {"role": "assistant", "content": response},
@@ -188,12 +223,26 @@ async def chat_completions(request: ChatCompletionRequest) -> Dict[str, Any]:
             }
         )
     except Exception as e:
+        # Check if error is about provider availability
+        error_msg = str(e)
+        if "not available" in error_msg.lower() or "no providers" in error_msg.lower():
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail={
+                    "error": {
+                        "message": error_msg,
+                        "type": "service_unavailable",
+                        "code": "provider_unavailable"
+                    },
+                    "request_id": request_id
+                }
+            )
         # Generic server errors
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={
                 "error": {
-                    "message": f"Chat completion failed: {str(e)}",
+                    "message": f"Chat completion failed: {error_msg}",
                     "type": "internal_error",
                     "code": "server_error"
                 },
