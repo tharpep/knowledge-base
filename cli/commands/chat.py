@@ -36,12 +36,17 @@ def chat(
         else:
             provider_name = provider
         
-        model_name = model or config.model_name
+        # Get provider-specific default model if no model specified
+        if model is None:
+            model_name = config.get_model_for_provider(provider_name)
+        else:
+            model_name = model
 
         # Test connection
         typer.echo("Testing connection...")
         try:
-            test_response = gateway.chat("Hello", provider=provider, model=model)
+            # Use model_name (provider-specific default) for test
+            test_response = gateway.chat("Hello", provider=provider, model=model_name)
             typer.echo(f"Connection successful!")
         except Exception as e:
             typer.echo(f"Connection test failed: {e}", err=True)
@@ -84,10 +89,11 @@ def chat(
                 typer.echo("AI: ", nl=False)
                 try:
                     # Pass full conversation history for stateful chat
+                    # Use model_name (provider-specific default) if no model override
                     response = gateway.chat(
                         message=user_input,
                         provider=provider,
-                        model=model,
+                        model=model_name if model is None else model,
                         messages=conversation_history
                     )
                     typer.echo(response)

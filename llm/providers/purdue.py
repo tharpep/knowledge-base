@@ -49,6 +49,8 @@ class PurdueGenAI(BaseLLMClient):
         if not self.api_key:
             raise ValueError("API key is required. Provide it directly or set PURDUE_API_STUDIO environment variable.")
         self.base_url = "https://genai.rcac.purdue.edu/api/chat/completions"
+        # Get default model from config
+        self.default_model = config.model_purdue
     
     def chat(self, messages: Any, model: Optional[str] = None, **kwargs) -> str:
         """
@@ -56,14 +58,14 @@ class PurdueGenAI(BaseLLMClient):
         
         Args:
             messages: Your message (str) or messages list
-            model: Model to use (default: llama3.1:latest)
+            model: Model to use (default: from config.model_purdue)
             
         Returns:
             str: AI response text
         """
         # Use default model if none specified
         if model is None:
-            model = "llama3.1:latest"
+            model = self.default_model
             
         # Handle both string and message list formats
         if isinstance(messages, list):

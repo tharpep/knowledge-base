@@ -27,18 +27,30 @@ class AppConfig(BaseSettings):
     )
 
     # ===== Model Configuration =====
-    model_default: str = Field(
+    # Provider-specific default models
+    model_anthropic: str = Field(
+        default="claude-haiku-4-5-20251001",
+        description="Default Anthropic/Claude model (latest Haiku 4.5)"
+    )
+    model_purdue: str = Field(
+        default="llama3.1:latest",
+        description="Default Purdue GenAI Studio model"
+    )
+    model_ollama: str = Field(
         default="llama3.2:1b",
-        description="Default model to use"
+        description="Default Ollama model (local)"
     )
     
-    # Previously tested models (commented for reference):
+    # Legacy: model_default for backward compatibility (used for Ollama)
+    model_default: str = Field(
+        default="llama3.2:1b",
+        description="Legacy default model (use provider-specific models instead)"
+    )
+    
+    # Previously tested Ollama models (commented for reference):
     # - llama3.2:1b (current default - lightweight, fast)
     # - qwen3:8b (larger model, better quality, requires more resources)
     # - qwen3:1.7b (medium size, balanced performance)
-    # 
-    # To use a different model, set MODEL_DEFAULT in .env or override model_default
-    # Example: MODEL_DEFAULT=qwen3:8b
 
     # ===== Ollama Configuration =====
     ollama_base_url: str = Field(
@@ -155,8 +167,28 @@ class AppConfig(BaseSettings):
     # ===== Computed Properties =====
     @property
     def model_name(self) -> str:
-        """Get model name (returns model_default)"""
-        return self.model_default
+        """Get model name based on current provider (returns provider-specific default)"""
+        # Return provider-specific model based on provider_name
+        if self.provider_name == "anthropic":
+            return self.model_anthropic
+        elif self.provider_name == "purdue":
+            return self.model_purdue
+        elif self.provider_name == "ollama":
+            return self.model_ollama
+        else:
+            # Fallback to legacy model_default
+            return self.model_default
+    
+    def get_model_for_provider(self, provider: str) -> str:
+        """Get default model for a specific provider"""
+        if provider == "anthropic":
+            return self.model_anthropic
+        elif provider == "purdue":
+            return self.model_purdue
+        elif provider == "ollama":
+            return self.model_ollama
+        else:
+            return self.model_default
 
     @property
     def use_ollama(self) -> bool:

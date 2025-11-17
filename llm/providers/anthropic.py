@@ -50,7 +50,8 @@ class AnthropicClient(BaseLLMClient):
             raise ValueError("API key is required. Provide it directly or set CLAUDE environment variable.")
         
         self.base_url = "https://api.anthropic.com/v1/messages"
-        self.default_model = "claude-haiku-4-5-20251001"  # Latest Haiku 4.5 model (Oct 2025)
+        # Get default model from config
+        self.default_model = config.model_anthropic
         self.api_version = "2023-06-01"
     
     def chat(self, messages: Any, model: Optional[str] = None, **kwargs) -> str:

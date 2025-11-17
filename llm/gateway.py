@@ -65,13 +65,13 @@ class AIGateway:
         if "ollama" in config:
             ollama_config = OllamaConfig(
                 base_url=config["ollama"].get("base_url", self.config.ollama_base_url),
-                default_model=config["ollama"].get("default_model", self.config.model_name)
+                default_model=config["ollama"].get("default_model", self.config.model_ollama)
             )
             self.providers["ollama"] = OllamaClient(ollama_config)
         elif self.config.provider_type == "local" and self.config.provider_name == "ollama":
             ollama_config = OllamaConfig(
                 base_url=self.config.ollama_base_url,
-                default_model=self.config.model_name
+                default_model=self.config.model_ollama
             )
             self.providers["ollama"] = OllamaClient(ollama_config)
     
@@ -117,8 +117,9 @@ class AIGateway:
         if provider == "ollama":
             return self._chat_ollama(provider_client, message, model, messages)
         else:
-            # Use config model if no model specified
-            model = model or self.config.model_name
+            # Use provider-specific default model if no model specified
+            if model is None:
+                model = self.config.get_model_for_provider(provider)
             # For non-Ollama providers, use messages array if provided, otherwise use message string
             if messages:
                 return provider_client.chat(messages, model)

@@ -36,7 +36,7 @@ DEFAULT_MODEL = "llama3.2:1b"
 @dataclass
 class OllamaConfig:
     base_url: str = field(default_factory=lambda: os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"))
-    default_model: str = field(default_factory=lambda: get_config().model_name)
+    default_model: str = field(default_factory=lambda: get_config().model_ollama)
     chat_timeout: float = field(default_factory=lambda: float(os.getenv("OLLAMA_CHAT_TIMEOUT", "60.0"))) # Increased timeout for complex queries
     embeddings_timeout: float = field(default_factory=lambda: float(os.getenv("OLLAMA_EMBEDDINGS_TIMEOUT", "30.0")))
     connection_timeout: float = field(default_factory=lambda: float(os.getenv("OLLAMA_CONNECTION_TIMEOUT", "5.0")))
