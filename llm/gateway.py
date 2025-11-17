@@ -117,8 +117,11 @@ class AIGateway:
         else:
             # Use config model if no model specified
             model = model or self.config.model_name
-            # For non-Ollama providers, use message string for now
-            return provider_client.chat(message, model)
+            # For non-Ollama providers, use messages array if provided, otherwise use message string
+            if messages:
+                return provider_client.chat(messages, model)
+            else:
+                return provider_client.chat(message, model)
     
     def _chat_ollama(self, client: OllamaClient, message: str, model: Optional[str] = None, messages: Optional[List[Dict[str, str]]] = None) -> str:
         """Helper to handle Ollama calls"""

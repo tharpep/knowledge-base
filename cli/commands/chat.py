@@ -51,7 +51,11 @@ def chat(
         typer.echo(f"Provider: {provider_name}")
         typer.echo(f"Model: {model_name}")
         typer.echo("Type 'quit', 'exit', or 'q' to end the session")
+        typer.echo("Type 'clear' to reset conversation history")
         typer.echo("")
+
+        # Maintain conversation history for stateful chat
+        conversation_history = []
 
         # Interactive chat loop
         while True:
@@ -65,13 +69,34 @@ def chat(
                     typer.echo("Ending chat session. Goodbye!")
                     break
 
+                if user_input.lower() == "clear":
+                    conversation_history = []
+                    typer.echo("Conversation history cleared.")
+                    typer.echo("")
+                    continue
+
+                # Add user message to history
+                conversation_history.append({"role": "user", "content": user_input})
+
                 typer.echo("AI: ", nl=False)
                 try:
-                    response = gateway.chat(user_input, provider=provider, model=model)
+                    # Pass full conversation history for stateful chat
+                    response = gateway.chat(
+                        message=user_input,
+                        provider=provider,
+                        model=model,
+                        messages=conversation_history
+                    )
                     typer.echo(response)
+                    
+                    # Add AI response to history
+                    conversation_history.append({"role": "assistant", "content": response})
                 except Exception as e:
                     typer.echo(f"Error: {e}", err=True)
                     typer.echo("Please try again or type 'quit' to exit.", err=True)
+                    # Remove the user message from history if there was an error
+                    if conversation_history and conversation_history[-1]["role"] == "user":
+                        conversation_history.pop()
 
                 typer.echo("")
 

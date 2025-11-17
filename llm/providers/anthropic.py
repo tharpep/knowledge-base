@@ -89,28 +89,28 @@ class AnthropicClient(BaseLLMClient):
         else:
             messages_list = [{"role": "user", "content": str(messages)}]
         
-        # Use the last user message if we have multiple (Anthropic API format)
-        # For conversation, we'd need to send full history, but for simplicity, use last user message
-        user_messages = [msg for msg in messages_list if msg["role"] == "user"]
-        if not user_messages:
-            raise ValueError("No user messages found")
+        # Extract system message if present (Anthropic handles it separately)
+        system_messages = [msg for msg in messages_list if msg.get("role") == "system"]
+        system_content = system_messages[0]["content"] if system_messages else None
         
-        # Use the last user message
-        last_message = user_messages[-1]["content"]
+        # Filter out system messages from conversation (Anthropic handles them separately)
+        conversation_messages = [msg for msg in messages_list if msg.get("role") != "system"]
+        
+        if not conversation_messages:
+            raise ValueError("No conversation messages found")
         
         model = model or self.default_model
         
-        # Prepare request
+        # Prepare request with full conversation history
         data = {
             "model": model,
             "max_tokens": kwargs.get("max_tokens", 1024),
-            "messages": [{"role": "user", "content": last_message}]
+            "messages": conversation_messages
         }
         
         # Add system message if provided
-        system_messages = [msg for msg in messages_list if msg.get("role") == "system"]
-        if system_messages:
-            data["system"] = system_messages[0]["content"]
+        if system_content:
+            data["system"] = system_content
         
         # Make API request
         req = urllib.request.Request(
