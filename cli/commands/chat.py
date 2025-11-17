@@ -7,7 +7,7 @@ from ..utils import check_venv
 
 
 def chat(
-    provider: Optional[str] = typer.Option(None, "--provider", "-p", help="AI provider to use (ollama, purdue)"),
+    provider: Optional[str] = typer.Option(None, "--provider", "-p", help="AI provider to use (anthropic/claude, ollama, purdue)"),
     model: Optional[str] = typer.Option(None, "--model", "-m", help="Model to use"),
 ) -> None:
     """Interactive chat with the AI - type your questions and get responses"""
@@ -23,7 +23,16 @@ def chat(
         config = get_config()
 
         # Determine provider and model info
-        provider_name = provider or config.provider_name
+        # Default to Claude if API key is available, otherwise use config default
+        if provider is None:
+            if config.anthropic_api_key:
+                provider = "anthropic"
+                provider_name = "anthropic"
+            else:
+                provider_name = config.provider_name
+        else:
+            provider_name = provider
+        
         model_name = model or config.model_name
 
         # Test connection

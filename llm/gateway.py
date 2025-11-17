@@ -7,7 +7,7 @@ Designed to be easily extended for additional providers
 import os
 import asyncio
 from typing import Dict, Any, Optional, List
-from .purdue_api import PurdueGenAI
+from .providers import PurdueGenAI, AnthropicClient
 from .local import OllamaClient, OllamaConfig
 from core.config import get_config
 
@@ -43,6 +43,15 @@ class AIGateway:
     
     def _setup_providers(self, config: Dict[str, Any]):
         """Setup available AI providers"""
+        # Setup Anthropic/Claude provider
+        if "anthropic" in config:
+            api_key = config["anthropic"].get("api_key")
+            self.providers["anthropic"] = AnthropicClient(api_key)
+        elif self.config.anthropic_api_key:
+            self.providers["anthropic"] = AnthropicClient()
+        elif os.getenv('CLAUDE') or os.getenv('ANTHROPIC_API_KEY'):
+            self.providers["anthropic"] = AnthropicClient()
+        
         # Setup Purdue provider
         if "purdue" in config:
             api_key = config["purdue"].get("api_key")
@@ -87,6 +96,8 @@ class AIGateway:
             if provider not in self.providers:
                 if self.config.provider_fallback and self.config.provider_fallback in self.providers:
                     provider = self.config.provider_fallback
+                elif "anthropic" in self.providers:
+                    provider = "anthropic"
                 elif "ollama" in self.providers:
                     provider = "ollama"
                 elif "purdue" in self.providers:

@@ -6,7 +6,7 @@ import pytest
 import json
 import os
 from unittest.mock import patch, MagicMock, mock_open
-from llm.purdue_api import PurdueGenAI
+from llm.providers import PurdueGenAI
 
 
 class TestPurdueGenAI:

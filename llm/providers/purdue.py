@@ -1,6 +1,6 @@
 """
-Simple Purdue GenAI Studio API Client
-Basic chat functionality for testing and verification
+Purdue GenAI Studio API Client
+External provider for Purdue's GenAI infrastructure
 """
 
 import json
@@ -8,12 +8,12 @@ import os
 import urllib.request
 import urllib.error
 from typing import Optional, List, Any
-from .base_client import BaseLLMClient
+from ..base_client import BaseLLMClient
 
 # Load environment variables from .env file
 def load_env_file():
     """Load environment variables from .env file"""
-    env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), '.env')
+    env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), '.env')
     if os.path.exists(env_path):
         with open(env_path, 'r') as f:
             for line in f:
@@ -33,11 +33,21 @@ class PurdueGenAI(BaseLLMClient):
         Initialize Purdue GenAI client
         
         Args:
-            api_key: API key for Purdue GenAI Studio. If None, will try to load from PURDUE_API_KEY environment variable
+            api_key: API key for Purdue GenAI Studio. If None, will try to load from PURDUE_API_STUDIO or PURDUE_API_KEY environment variable
         """
-        self.api_key = api_key or os.getenv('PURDUE_API_KEY')
+        from core.config import get_config
+        config = get_config()
+        
+        # Try multiple environment variable names for flexibility
+        self.api_key = (
+            api_key or 
+            config.purdue_api_key or 
+            os.getenv('PURDUE_API_STUDIO') or 
+            os.getenv('PURDUE_API_KEY')
+        )
+        
         if not self.api_key:
-            raise ValueError("API key is required. Provide it directly or set PURDUE_API_KEY environment variable.")
+            raise ValueError("API key is required. Provide it directly or set PURDUE_API_STUDIO environment variable.")
         self.base_url = "https://genai.rcac.purdue.edu/api/chat/completions"
     
     def chat(self, messages: Any, model: Optional[str] = None, **kwargs) -> str:
@@ -49,7 +59,7 @@ class PurdueGenAI(BaseLLMClient):
             model: Model to use (default: llama3.1:latest)
             
         Returns:
-            str: AI response
+            str: AI response text
         """
         # Use default model if none specified
         if model is None:
@@ -102,21 +112,3 @@ class PurdueGenAI(BaseLLMClient):
             "mixtral:latest"
         ]
 
-
-# Example usage
-if __name__ == "__main__":
-    # Debug: Check if environment variable is loaded
-    api_key = os.getenv('PURDUE_API_KEY')
-    if api_key:
-        print(f" Found API key")
-    else:
-        print(" No API key found in environment variables")
-        print("Make sure your .env file contains: PURDUE_API_KEY=your-key-here")
-        exit(1)
-    
-    try:
-        client = PurdueGenAI()  # Uses PURDUE_API_KEY from environment
-        response = client.chat("Hello! What is your name?")
-        print(f"AI Response: {response}")
-    except Exception as e:
-        print(f"Error: {e}")
