@@ -89,21 +89,23 @@ class AIGateway:
         Returns:
             str: AI response
         """
-        # Auto-select provider based on config
+        # Auto-select provider based on availability (prioritize Anthropic)
         if provider is None:
-            provider = self.config.provider_name
-            # Fallback logic if primary provider not available
-            if provider not in self.providers:
-                if self.config.provider_fallback and self.config.provider_fallback in self.providers:
-                    provider = self.config.provider_fallback
-                elif "anthropic" in self.providers:
-                    provider = "anthropic"
-                elif "ollama" in self.providers:
-                    provider = "ollama"
-                elif "purdue" in self.providers:
-                    provider = "purdue"
-                else:
-                    raise Exception(f"No providers available. Configure provider in config or set API keys in .env")
+            # Prioritize Anthropic if available (preferred default)
+            if "anthropic" in self.providers:
+                provider = "anthropic"
+            # Fallback to config default
+            elif self.config.provider_name in self.providers:
+                provider = self.config.provider_name
+            # Additional fallback logic
+            elif self.config.provider_fallback and self.config.provider_fallback in self.providers:
+                provider = self.config.provider_fallback
+            elif "ollama" in self.providers:
+                provider = "ollama"
+            elif "purdue" in self.providers:
+                provider = "purdue"
+            else:
+                raise Exception(f"No providers available. Configure provider in config or set API keys in .env")
         
         if provider not in self.providers:
             available = ", ".join(self.providers.keys())

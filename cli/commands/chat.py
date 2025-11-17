@@ -25,11 +25,14 @@ def chat(
         # Determine provider and model info
         # Default to Claude if API key is available, otherwise use config default
         if provider is None:
-            if config.anthropic_api_key:
+            # Check if Anthropic is available (preferred default)
+            if "anthropic" in gateway.get_available_providers():
                 provider = "anthropic"
                 provider_name = "anthropic"
             else:
+                # Fallback to config default (likely ollama)
                 provider_name = config.provider_name
+                provider = provider_name
         else:
             provider_name = provider
         

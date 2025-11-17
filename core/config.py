@@ -4,7 +4,7 @@ Unified configuration using Pydantic Settings for type safety and .env support
 """
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import Field
+from pydantic import Field, AliasChoices
 from typing import Literal, Optional
 from functools import lru_cache
 
@@ -67,7 +67,8 @@ class AppConfig(BaseSettings):
     )
     anthropic_api_key: Optional[str] = Field(
         default=None,
-        description="Anthropic API key (from .env)"
+        description="Anthropic API key (from .env as CLAUDE or ANTHROPIC_API_KEY)",
+        validation_alias=AliasChoices("CLAUDE", "ANTHROPIC_API_KEY")
     )
 
     # ===== RAG Configuration =====
