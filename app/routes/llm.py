@@ -139,65 +139,44 @@ async def chat_completions(request: ChatCompletionRequest) -> Dict[str, Any]:
         # Get user message
         user_message = messages[-1]["content"]
         
-        # Determine RAG settings
+        # Get config
         config = gateway.config
-        use_rag = request.use_rag if request.use_rag is not None else config.chat_rag_enabled
-        rag_top_k = request.rag_top_k if request.rag_top_k is not None else config.chat_rag_top_k
         
-        # Get system prompt
-        if request.system_prompt:
-            system_prompt = request.system_prompt
-        else:
-            from core.prompts import get_prompt
-            system_prompt = get_prompt("llm")
+        # Use ChatService to prepare message with RAG context
+        from core.services import ChatService
         
-        # Get RAG context if enabled
-        rag_context = None
-        if use_rag:
-            try:
-                from rag.rag_setup import BasicRAG
-                rag = BasicRAG()
-                rag_results = rag.get_context_for_chat(
-                    query=user_message,
-                    top_k=rag_top_k,
-                    similarity_threshold=config.chat_rag_similarity_threshold
-                )
-                
-                # Format RAG context if found
-                if rag_results:
-                    rag_context = "\n\n".join([doc for doc, _ in rag_results])
-            except Exception as e:
-                # Log error but continue without RAG
-                import logging
-                logger = logging.getLogger(__name__)
-                logger.warning(f"RAG retrieval failed, continuing without RAG context: {e}")
-                rag_context = None
+        chat_service = ChatService(config)
+        message_result = chat_service.prepare_chat_message(
+            user_message=user_message,
+            conversation_history=messages[:-1],  # All messages except the current one
+            use_rag=request.use_rag,
+            rag_top_k=request.rag_top_k,
+            similarity_threshold=None,  # Use config default
+            system_prompt=request.system_prompt,
+            rag_prompt_template=request.rag_prompt_template
+        )
         
-        # Format prompt based on whether RAG context is available
-        from core.prompts import get_prompt, format_prompt
+        # Update the last message in messages array with formatted message
+        # This preserves conversation history while adding RAG context to current message
+        messages[-1]["content"] = message_result.formatted_message
+        rag_results = message_result.rag_results
         
-        if use_rag and rag_context:
-            # Use RAG prompt template
-            if request.rag_prompt_template:
-                rag_template = request.rag_prompt_template
-            else:
-                rag_template = get_prompt("llm_with_rag")
-            
-            formatted_message = format_prompt(
-                rag_template,
-                rag_context=rag_context,
-                user_message=user_message
-            )
-        else:
-            # Use regular LLM prompt
-            formatted_message = f"{system_prompt}\n\nUser: {user_message}"
+        # Log model/provider usage if logging enabled
+        if config.log_output:
+            import logging
+            logger = logging.getLogger(__name__)
+            model_to_use = request.model or gateway.config.model_name
+            provider_to_use = provider_used or "auto-select"
+            logger.info(f"Chat - Provider: {provider_to_use}, Model: {model_to_use}")
+            logger.info(f"Chat - RAG Context: {'Yes' if rag_results else 'No'}")
         
-        # Call gateway with formatted message
-        # Gateway will pass through to provider
+        # Call gateway with messages array (which now includes RAG context in the user message)
+        # Gateway will use messages array if provided, message parameter is just for backward compatibility
         response = gateway.chat(
-            message=formatted_message,
-            provider=provider_used,  # Use specified provider or auto-select
-            model=request.model
+            message=message_result.formatted_message,  # Fallback if messages not supported
+            provider=provider_used,
+            model=request.model,
+            messages=messages  # Pass messages array with RAG context included
         )
         
         # Determine which provider was actually used

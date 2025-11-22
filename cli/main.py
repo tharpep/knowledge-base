@@ -1,7 +1,7 @@
 """Personal AI Assistant CLI - Main entry point"""
 import typer
 
-from .commands import setup, test, demo, config, chat
+from .commands import setup, test, demo, config, chat, query
 
 app = typer.Typer(
     name="myai",
@@ -10,11 +10,12 @@ app = typer.Typer(
 )
 
 # Register subcommands
-app.command(name="setup")(setup)
+app.command(name="setup")(setup)  # Kept for backward compatibility, but poetry handles setup
 app.command(name="test")(test)
 app.command(name="demo")(demo)
 app.command(name="config")(config)
 app.command(name="chat")(chat)
+app.command(name="query")(query)
 
 
 def main() -> None:

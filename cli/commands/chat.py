@@ -83,20 +83,40 @@ def chat(
                     typer.echo("")
                     continue
 
-                # Add user message to history
-                conversation_history.append({"role": "user", "content": user_input})
-
                 typer.echo("AI: ", nl=False)
                 try:
-                    # Get LLM prompt and format user message
-                    from core.prompts import get_prompt
-                    llm_template = get_prompt("llm")
-                    formatted_message = f"{llm_template}\n\nUser: {user_input}"
+                    # Use ChatService to prepare message with RAG context
+                    from core.services import ChatService
                     
-                    # Pass full conversation history for stateful chat
-                    # Use model_name (provider-specific default) if no model override
+                    chat_service = ChatService(config)
+                    message_result = chat_service.prepare_chat_message(
+                        user_message=user_input,
+                        conversation_history=conversation_history,
+                        use_rag=None,  # Use config default
+                        rag_top_k=None,  # Use config default
+                        similarity_threshold=None,  # Use config default
+                        system_prompt=None,  # Use default
+                        rag_prompt_template=None  # Use default
+                    )
+                    
+                    # Log RAG results if logging enabled
+                    if config.log_output:
+                        if message_result.rag_results:
+                            typer.echo(f"[RAG: Retrieved {len(message_result.rag_results)} docs]", err=True)
+                        else:
+                            typer.echo(f"[RAG: No docs found]", err=True)
+                    
+                    # Add formatted message (with RAG context clearly separated) to conversation history
+                    # This preserves previous conversation while adding RAG to current message
+                    conversation_history.append({"role": "user", "content": message_result.formatted_message})
+                    
+                    if config.log_output:
+                        typer.echo(f"[Using: {provider_name}/{model_name}]", err=True)
+                    
+                    # Pass conversation history (which now includes RAG context in the user message)
+                    # Gateway will use messages array if provided, message parameter is just for backward compatibility
                     response = gateway.chat(
-                        message=formatted_message,
+                        message=message_result.formatted_message,  # Fallback if messages not supported
                         provider=provider,
                         model=model_name if model is None else model,
                         messages=conversation_history

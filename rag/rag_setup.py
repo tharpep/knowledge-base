@@ -88,12 +88,12 @@ class BasicRAG:
         """
         Get RAG context for chat endpoint.
         Performs vector search with top-k and filters by similarity threshold.
-        
+
         Args:
             query: User query/message
             top_k: Number of documents to retrieve from vector search
             similarity_threshold: Minimum similarity score to include (0.0-1.0)
-            
+
         Returns:
             List of (document_text, similarity_score) tuples that pass threshold.
             Empty list if no documents pass threshold.
@@ -104,6 +104,21 @@ class BasicRAG:
         # Filter by similarity threshold
         filtered = [(doc, score) for doc, score in retrieved 
                    if score >= similarity_threshold]
+        
+        # Log retrieval details if logging enabled
+        if self.config.log_output:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info(f"RAG Retrieval - Query: '{query[:100]}...'")
+            logger.info(f"  Top-K: {top_k}, Threshold: {similarity_threshold}")
+            logger.info(f"  Retrieved: {len(retrieved)} docs, Filtered: {len(filtered)} docs")
+            if filtered:
+                logger.info(f"  Retrieved Documents:")
+                for i, (doc, score) in enumerate(filtered, 1):
+                    doc_preview = doc[:150] + "..." if len(doc) > 150 else doc
+                    logger.info(f"    [{i}] Score: {score:.3f} | {doc_preview}")
+            else:
+                logger.info(f"  No documents passed similarity threshold")
         
         return filtered
     
@@ -120,10 +135,23 @@ class BasicRAG:
         """
         # Use config default if context_limit not specified
         if context_limit is None:
-            context_limit = self.config.top_k
+            context_limit = self.config.rag_top_k
             
         # Retrieve relevant documents
         retrieved_docs = self.search(question, limit=context_limit)
+        
+        # Log retrieval details if logging enabled
+        if self.config.log_output:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info(f"RAG Query - Question: '{question[:100]}...'")
+            logger.info(f"  Context Limit: {context_limit}")
+            logger.info(f"  Retrieved: {len(retrieved_docs)} documents")
+            if retrieved_docs:
+                logger.info(f"  Retrieved Documents:")
+                for i, (doc, score) in enumerate(retrieved_docs, 1):
+                    doc_preview = doc[:150] + "..." if len(doc) > 150 else doc
+                    logger.info(f"    [{i}] Score: {score:.3f} | {doc_preview}")
         
         if not retrieved_docs:
             return "No relevant documents found.", [], []
@@ -137,6 +165,11 @@ class BasicRAG:
         prompt = format_prompt(rag_template, context=rag_context, question=question)
         
         # Generate answer
+        if self.config.log_output:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info(f"  Generating answer using model: {self.gateway.config.model_name}")
+        
         answer = self.gateway.chat(prompt, provider=None, model=None)
         
         # Return answer along with context details for logging

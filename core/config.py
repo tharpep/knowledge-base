@@ -145,6 +145,12 @@ class AppConfig(BaseSettings):
         description="Use data/documents folder instead of data/corpus for RAG ingestion (True = documents, False = corpus)"
     )
 
+    # ===== Logging/Output Configuration =====
+    log_output: bool = Field(
+        default=True,
+        description="Enable verbose logging/output for RAG retrieval, model usage, and system operations (True = verbose, False = clean)"
+    )
+
     # ===== Tuning Configuration =====
     tuning_device: str = Field(
         default="auto",

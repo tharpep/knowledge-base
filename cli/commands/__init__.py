@@ -4,6 +4,7 @@ from .test import test
 from .demo import demo
 from .config import config
 from .chat import chat
+from .query import query
 
-__all__ = ["setup", "test", "demo", "config", "chat"]
+__all__ = ["setup", "test", "demo", "config", "chat", "query"]
 
