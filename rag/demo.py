@@ -29,7 +29,8 @@ def run_rag_demo(mode="automated"):
         
         # Load documents
         print("Loading documents...")
-        documents_folder = Path(__file__).parent.parent / "data" / "documents"
+        # Use config to determine folder (corpus or documents)
+        documents_folder = Path(__file__).parent.parent / config.rag_documents_folder.replace("./", "")
         
         if documents_folder.exists():
             # Check if we should clear the collection first

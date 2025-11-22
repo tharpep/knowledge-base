@@ -121,6 +121,30 @@ class AppConfig(BaseSettings):
         description="Temperature for RAG generation (0.0-1.0)"
     )
 
+    # ===== Chat RAG Configuration =====
+    chat_rag_enabled: bool = Field(
+        default=True,
+        description="Enable RAG context retrieval in chat completions endpoint"
+    )
+    chat_rag_top_k: int = Field(
+        default=30,
+        ge=1,
+        le=100,
+        description="Top-k documents to retrieve for chat RAG (1-100)"
+    )
+    chat_rag_similarity_threshold: float = Field(
+        default=0.7,
+        ge=0.0,
+        le=1.0,
+        description="Minimum similarity score for chat RAG context (0.0-1.0)"
+    )
+
+    # ===== Document Source Configuration =====
+    rag_use_documents_folder: bool = Field(
+        default=False,
+        description="Use data/documents folder instead of data/corpus for RAG ingestion (True = documents, False = corpus)"
+    )
+
     # ===== Tuning Configuration =====
     tuning_device: str = Field(
         default="auto",
@@ -220,6 +244,14 @@ class AppConfig(BaseSettings):
         """Get path to model registry"""
         model_suffix = self._get_model_suffix()
         return f"./tuned_models/{model_suffix}/model_registry.json"
+
+    @property
+    def rag_documents_folder(self) -> str:
+        """Get the documents folder path based on config"""
+        if self.rag_use_documents_folder:
+            return "./data/documents"
+        else:
+            return "./data/corpus"
 
 
 # Global config instance (singleton pattern)

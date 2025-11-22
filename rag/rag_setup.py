@@ -3,6 +3,7 @@ RAG System Orchestrator
 Coordinates vector storage, retrieval, and generation components
 """
 
+from typing import List, Tuple
 from llm.gateway import AIGateway
 from .vector_store import VectorStore
 from .retriever import DocumentRetriever
@@ -77,6 +78,34 @@ class BasicRAG:
         
         # Search vector store
         return self.vector_store.search(self.collection_name, query_embedding, limit)
+    
+    def get_context_for_chat(
+        self,
+        query: str,
+        top_k: int,
+        similarity_threshold: float
+    ) -> List[Tuple[str, float]]:
+        """
+        Get RAG context for chat endpoint.
+        Performs vector search with top-k and filters by similarity threshold.
+        
+        Args:
+            query: User query/message
+            top_k: Number of documents to retrieve from vector search
+            similarity_threshold: Minimum similarity score to include (0.0-1.0)
+            
+        Returns:
+            List of (document_text, similarity_score) tuples that pass threshold.
+            Empty list if no documents pass threshold.
+        """
+        # Perform vector search with top-k
+        retrieved = self.search(query, limit=top_k)
+        
+        # Filter by similarity threshold
+        filtered = [(doc, score) for doc, score in retrieved 
+                   if score >= similarity_threshold]
+        
+        return filtered
     
     def query(self, question, context_limit=None):
         """

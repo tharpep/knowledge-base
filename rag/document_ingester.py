@@ -188,6 +188,8 @@ class DocumentIngester:
 
 def main():
     """Demo of document ingestion"""
+    from core.config import get_config
+    
     print("=== Document Ingestion Demo ===\n")
     
     # Initialize RAG with persistent storage
@@ -197,8 +199,12 @@ def main():
     # Initialize ingester
     ingester = DocumentIngester(rag)
     
+    # Get folder from config
+    config = get_config()
+    documents_folder = config.rag_documents_folder
+    print(f"Using documents folder: {documents_folder}")
+    
     # Check what files are available
-    documents_folder = "./data/documents"
     supported_files = ingester.get_supported_files(documents_folder)
     
     print(f"2. Found {len(supported_files)} supported files:")

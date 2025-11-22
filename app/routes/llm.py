@@ -37,6 +37,10 @@ class ChatCompletionRequest(BaseModel):
     temperature: Optional[float] = Field(None, ge=0.0, le=2.0, description="Sampling temperature")
     top_p: Optional[float] = Field(None, ge=0.0, le=1.0, description="Top-p sampling")
     max_tokens: Optional[int] = Field(None, gt=0, description="Maximum tokens to generate")
+    use_rag: Optional[bool] = Field(None, description="Enable RAG context retrieval (overrides config default)")
+    rag_top_k: Optional[int] = Field(None, ge=1, le=100, description="Top-k documents to retrieve for RAG (overrides config default)")
+    system_prompt: Optional[str] = Field(None, description="Custom system prompt (overrides default)")
+    rag_prompt_template: Optional[str] = Field(None, description="Custom RAG prompt template (overrides default)")
 
 
 class EmbeddingRequest(BaseModel):
@@ -132,11 +136,61 @@ async def chat_completions(request: ChatCompletionRequest) -> Dict[str, Any]:
         if request.max_tokens is not None:
             kwargs["max_tokens"] = request.max_tokens
         
-        # Get LLM prompt and format user message
-        from core.prompts import get_prompt
-        llm_template = get_prompt("llm")
+        # Get user message
         user_message = messages[-1]["content"]
-        formatted_message = f"{llm_template}\n\nUser: {user_message}"
+        
+        # Determine RAG settings
+        config = gateway.config
+        use_rag = request.use_rag if request.use_rag is not None else config.chat_rag_enabled
+        rag_top_k = request.rag_top_k if request.rag_top_k is not None else config.chat_rag_top_k
+        
+        # Get system prompt
+        if request.system_prompt:
+            system_prompt = request.system_prompt
+        else:
+            from core.prompts import get_prompt
+            system_prompt = get_prompt("llm")
+        
+        # Get RAG context if enabled
+        rag_context = None
+        if use_rag:
+            try:
+                from rag.rag_setup import BasicRAG
+                rag = BasicRAG()
+                rag_results = rag.get_context_for_chat(
+                    query=user_message,
+                    top_k=rag_top_k,
+                    similarity_threshold=config.chat_rag_similarity_threshold
+                )
+                
+                # Format RAG context if found
+                if rag_results:
+                    rag_context = "\n\n".join([doc for doc, _ in rag_results])
+            except Exception as e:
+                # Log error but continue without RAG
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning(f"RAG retrieval failed, continuing without RAG context: {e}")
+                rag_context = None
+        
+        # Format prompt based on whether RAG context is available
+        from core.prompts import get_prompt, format_prompt
+        
+        if use_rag and rag_context:
+            # Use RAG prompt template
+            if request.rag_prompt_template:
+                rag_template = request.rag_prompt_template
+            else:
+                rag_template = get_prompt("llm_with_rag")
+            
+            formatted_message = format_prompt(
+                rag_template,
+                rag_context=rag_context,
+                user_message=user_message
+            )
+        else:
+            # Use regular LLM prompt
+            formatted_message = f"{system_prompt}\n\nUser: {user_message}"
         
         # Call gateway with formatted message
         # Gateway will pass through to provider

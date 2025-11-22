@@ -2,7 +2,7 @@
 
 import uuid
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, HTTPException, status
 
@@ -10,12 +10,13 @@ router = APIRouter()
 
 
 @router.post("/ingest")
-async def ingest_documents(folder_path: str = "./data/documents") -> Dict[str, Any]:
+async def ingest_documents(folder_path: Optional[str] = None) -> Dict[str, Any]:
     """
     Ingest documents into the RAG system.
     
     Args:
-        folder_path: Path to folder containing documents to ingest
+        folder_path: Path to folder containing documents to ingest. 
+                     If not provided, uses config.rag_documents_folder (corpus or documents based on rag_use_documents_folder)
         
     Returns:
         Dictionary with ingestion results including:
@@ -28,11 +29,17 @@ async def ingest_documents(folder_path: str = "./data/documents") -> Dict[str, A
     """
     from rag.rag_setup import BasicRAG
     from rag.document_ingester import DocumentIngester
+    from core.config import get_config
     
     # Generate request ID for tracing
     request_id = f"req_{uuid.uuid4().hex[:12]}"
     
     try:
+        # Use config folder if not provided
+        config = get_config()
+        if folder_path is None:
+            folder_path = config.rag_documents_folder
+        
         # Validate folder path
         folder = Path(folder_path)
         if not folder.exists():
