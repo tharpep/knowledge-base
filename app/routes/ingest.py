@@ -4,7 +4,7 @@ import uuid
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, UploadFile, status
 
 router = APIRouter()
 
@@ -95,6 +95,82 @@ async def ingest_documents(folder_path: Optional[str] = None) -> Dict[str, Any]:
             detail={
                 "error": {
                     "message": f"Document ingestion failed: {str(e)}",
+                    "type": "internal_error",
+                    "code": "server_error"
+                },
+                "request_id": request_id
+            }
+        )
+
+
+@router.post("/ingest/upload")
+async def upload_document(file: UploadFile) -> Dict[str, Any]:
+    """
+    Upload a document for async processing into RAG system.
+    
+    File is saved to blob storage and queued for background processing.
+    
+    Args:
+        file: The uploaded file (TXT, MD, PDF, or DOCX)
+        
+    Returns:
+        Dictionary with:
+        - job_id: Job identifier for tracking processing status
+        - blob_id: Blob identifier for the stored file
+        - status: Current job status (queued)
+        - request_id: Request ID for tracing
+    """
+    from core.file_storage import get_blob_storage
+    from core.queue import get_redis_queue
+    from rag.document_parser import DocumentParser
+    
+    # Generate request ID for tracing
+    request_id = f"req_{uuid.uuid4().hex[:12]}"
+    
+    try:
+        # Validate file type
+        filename = file.filename or "unknown"
+        parser = DocumentParser()
+        if not parser.supports(Path(filename)):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "error": {
+                        "message": f"Unsupported file type: {filename}. Supported: .txt, .md, .pdf, .docx",
+                        "type": "invalid_request_error",
+                        "code": "unsupported_file_type"
+                    },
+                    "request_id": request_id
+                }
+            )
+        
+        # Read file content
+        content = await file.read()
+        
+        # Save to blob storage
+        storage = get_blob_storage()
+        blob_id = storage.save(content, filename)
+        
+        # Enqueue for processing
+        queue = await get_redis_queue()
+        job_id = await queue.enqueue('process_document', blob_id)
+        
+        return {
+            "job_id": job_id,
+            "blob_id": blob_id,
+            "filename": filename,
+            "status": "queued",
+            "request_id": request_id
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error": {
+                    "message": f"Upload failed: {str(e)}",
                     "type": "internal_error",
                     "code": "server_error"
                 },
