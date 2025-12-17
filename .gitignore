@@ -95,6 +95,7 @@ htmlcov/
 *.index
 vector_store/
 embeddings/
+data/qdrant_db/
 
 # Database
 *.db

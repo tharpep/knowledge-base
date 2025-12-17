@@ -54,14 +54,78 @@ def _start_redis_container() -> bool:
                 return True
             time.sleep(0.5)
         
-        typer.echo("[Redis] ⚠️  Redis started but not responding", err=True)
+        typer.echo("[Redis] Redis started but not responding", err=True)
         return False
         
     except subprocess.CalledProcessError as e:
-        typer.echo(f"[Redis] ❌ Failed to start Redis: {e}", err=True)
+        typer.echo(f"[Redis] Failed to start Redis: {e}", err=True)
         return False
     except FileNotFoundError:
-        typer.echo("[Redis] ❌ Docker not found. Please install Docker or start Redis manually.", err=True)
+        typer.echo("[Redis] Docker not found. Please install Docker or start Redis manually.", err=True)
+        return False
+
+
+def _check_qdrant_running(host: str = "localhost", port: int = 6333) -> bool:
+    """Check if Qdrant is running and accepting connections"""
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(2)
+        result = sock.connect_ex((host, port))
+        sock.close()
+        return result == 0
+    except Exception:
+        return False
+
+
+def _start_qdrant_container() -> bool:
+    """Start Qdrant container if not running"""
+    try:
+        # Check if container exists but is stopped
+        result = subprocess.run(
+            ["docker", "ps", "-a", "--filter", "name=myai-qdrant", "--format", "{{.Status}}"],
+            capture_output=True,
+            text=True
+        )
+        
+        if "Exited" in result.stdout:
+            # Container exists but stopped, start it
+            typer.echo("[Qdrant] Starting existing Qdrant container...")
+            subprocess.run(["docker", "start", "myai-qdrant"], check=True)
+        elif not result.stdout.strip():
+            # Container doesn't exist, create it
+            typer.echo("[Qdrant] Creating Qdrant container...")
+            # Get absolute path for volume mount
+            import os
+            data_path = os.path.abspath("./data/qdrant_db")
+            os.makedirs(data_path, exist_ok=True)
+            subprocess.run([
+                "docker", "run", "-d",
+                "--name", "myai-qdrant",
+                "-p", "6333:6333",
+                "-p", "6334:6334",
+                "-v", f"{data_path}:/qdrant/storage",
+                "qdrant/qdrant:latest"
+            ], check=True)
+        else:
+            # Container is already running
+            typer.echo("[Qdrant] Qdrant container already running")
+            return True
+        
+        # Wait for Qdrant to be ready
+        for i in range(20):  # Qdrant takes longer to start
+            if _check_qdrant_running():
+                typer.echo("[Qdrant] Qdrant is ready")
+                return True
+            time.sleep(0.5)
+        
+        typer.echo("[Qdrant] Qdrant started but not responding", err=True)
+        return False
+        
+    except subprocess.CalledProcessError as e:
+        typer.echo(f"[Qdrant] Failed to start Qdrant: {e}", err=True)
+        return False
+    except FileNotFoundError:
+        typer.echo("[Qdrant] Docker not found. Please install Docker or start Qdrant manually.", err=True)
         return False
 
 
@@ -71,11 +135,13 @@ def serve(
     reload: bool = typer.Option(True, "--reload/--no-reload", help="Enable auto-reload"),
     worker: bool = typer.Option(True, "--worker/--no-worker", help="Start Redis worker"),
     auto_redis: bool = typer.Option(True, "--auto-redis/--no-auto-redis", help="Auto-start Redis if not running"),
+    auto_qdrant: bool = typer.Option(True, "--auto-qdrant/--no-auto-qdrant", help="Auto-start Qdrant if not running"),
 ) -> None:
     """
-    Start the API server and Redis worker.
+    Start the API server and all required services.
     
     Starts:
+    - Qdrant (auto-starts container if not running)
     - Redis (auto-starts container if not running)
     - FastAPI server (uvicorn)
     - Redis worker (arq) if --worker flag is set
@@ -100,19 +166,30 @@ def serve(
     signal.signal(signal.SIGTERM, cleanup)
     
     try:
-        # Check/start Redis
+        # Check/start Qdrant (vector database)
+        if not _check_qdrant_running():
+            if auto_qdrant:
+                typer.echo("[Startup] Qdrant not running, attempting to start...")
+                if not _start_qdrant_container():
+                    typer.echo("[Startup] Qdrant failed to start. Will use in-memory storage.", err=True)
+            else:
+                typer.echo("[Startup] Qdrant not running. Will use in-memory storage.", err=True)
+        else:
+            typer.echo("[Startup] Qdrant is running")
+        
+        # Check/start Redis (job queue)
         if not _check_redis_running():
             if auto_redis:
                 typer.echo("[Startup] Redis not running, attempting to start...")
                 if not _start_redis_container():
-                    typer.echo("[Startup] ❌ Cannot start without Redis. Use --no-worker to skip worker.", err=True)
+                    typer.echo("[Startup] Cannot start without Redis. Use --no-worker to skip worker.", err=True)
                     if worker:
                         raise typer.Exit(1)
             else:
-                typer.echo("[Startup] ⚠️  Redis not running. Worker will not start.", err=True)
+                typer.echo("[Startup] Redis not running. Worker will not start.", err=True)
                 worker = False
         else:
-            typer.echo("[Startup] ✓ Redis is running")
+            typer.echo("[Startup] Redis is running")
         
         # Start worker if requested and Redis is available
         if worker:

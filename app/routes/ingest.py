@@ -371,11 +371,11 @@ async def get_indexed_stats() -> Dict[str, Any]:
     
     try:
         rag = BasicRAG()
-        stats = rag.get_collection_stats()
+        stats = rag.get_stats()
         
         return {
-            "collection": stats.get("collection_name", "unknown"),
-            "total_documents": stats.get("document_count", 0),
+            "collection": stats.get("collection", "unknown"),
+            "total_documents": stats.get("total_points", 0),
             "vector_dimension": stats.get("vector_dimension", 0),
             "storage_type": "server" if rag.vector_store.use_persistent else "in-memory",
             "request_id": request_id
