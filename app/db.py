@@ -172,12 +172,13 @@ def get_request_by_id(request_id: str) -> Optional[Dict[str, Any]]:
         return None
 
 
-def get_recent_requests(limit: int = 100) -> list[Dict[str, Any]]:
+def get_recent_requests(limit: int = 100, offset: int = 0) -> list[Dict[str, Any]]:
     """
     Get recent requests, ordered by timestamp descending.
     
     Args:
         limit: Maximum number of requests to return
+        offset: Number of requests to skip
         
     Returns:
         List of request dictionaries
@@ -188,8 +189,8 @@ def get_recent_requests(limit: int = 100) -> list[Dict[str, Any]]:
             cursor.execute("""
                 SELECT * FROM requests 
                 ORDER BY timestamp DESC 
-                LIMIT ?
-            """, (limit,))
+                LIMIT ? OFFSET ?
+            """, (limit, offset))
             
             rows = cursor.fetchall()
             return [dict(row) for row in rows]
