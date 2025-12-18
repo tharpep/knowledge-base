@@ -15,9 +15,8 @@
     - [x] Add `hardware_mode` ("gpu"/"cpu") to `core/config.py`
     - [x] Add `model_library` and `model_journal` fields (defaulting to Registry values)
     - [x] Rename `blob_storage_path` default to `./data/library_blob`
-  - [ ] **1C. Verification**
-    - [ ] Check `GET /v1/config` returns new hardware/model settings
-    - [ ] Verify `rag_collection_name` legacy alias works
+  - [x] **1C. Verification**
+    - [x] Check `GET /v1/config` returns new hardware/model settings
 
 - [ ] **Phase 2: The Journal Engine (Storage)**
   - [ ] **2A. Core Class**

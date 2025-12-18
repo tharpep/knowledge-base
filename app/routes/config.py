@@ -96,6 +96,11 @@ async def get_config() -> Dict[str, Any]:
                 # Embedding
                 "embedding_model": config.embedding_model,
                 
+                # Mnemosyne: Hardware & Model Selection
+                "hardware_mode": config.hardware_mode,
+                "model_library": config.model_library,
+                "model_journal": config.model_journal,
+                
                 # Infrastructure
                 "qdrant_host": config.qdrant_host,
                 "qdrant_port": config.qdrant_port,
