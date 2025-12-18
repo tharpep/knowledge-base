@@ -208,8 +208,46 @@ Title:"""
         Returns:
             List of relevant JournalEntry objects
         """
-        # TODO: Implement in Phase 2C
-        raise NotImplementedError("Phase 2C: get_recent_context")
+        from qdrant_client.models import Filter, FieldCondition, MatchValue
+        
+        try:
+            # Generate query embedding
+            query_vector = self.embedder.encode(query).tolist()
+            
+            # Build optional filter for session_id
+            query_filter = None
+            if session_id:
+                query_filter = Filter(
+                    must=[
+                        FieldCondition(
+                            key="session_id",
+                            match=MatchValue(value=session_id)
+                        )
+                    ]
+                )
+            
+            # Search with filter
+            results = self.vector_store.client.query_points(
+                collection_name=JOURNAL_COLLECTION,
+                query=query_vector,
+                query_filter=query_filter,
+                limit=limit
+            ).points
+            
+            # Convert to JournalEntry objects
+            entries = []
+            for hit in results:
+                try:
+                    entry = JournalEntry(**hit.payload)
+                    entries.append(entry)
+                except Exception as e:
+                    logger.warning(f"Failed to parse journal entry: {e}")
+            
+            return entries
+            
+        except Exception as e:
+            logger.error(f"Failed to retrieve journal context: {e}")
+            return []
     
     async def delete_session(self, session_id: str) -> bool:
         """
@@ -221,8 +259,28 @@ Title:"""
         Returns:
             True if deletion was successful
         """
-        # TODO: Implement in Phase 2C
-        raise NotImplementedError("Phase 2C: delete_session")
+        from qdrant_client.models import Filter, FieldCondition, MatchValue
+        
+        try:
+            # Delete by payload filter
+            self.vector_store.client.delete(
+                collection_name=JOURNAL_COLLECTION,
+                points_selector=Filter(
+                    must=[
+                        FieldCondition(
+                            key="session_id",
+                            match=MatchValue(value=session_id)
+                        )
+                    ]
+                )
+            )
+            
+            logger.info(f"Deleted journal entries for session: {session_id}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to delete session {session_id}: {e}")
+            return False
     
     # =========================================================================
     # Utility Methods
