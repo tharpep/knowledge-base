@@ -25,14 +25,14 @@
   - [x] **2B. Storage Logic**
     - [x] Implement `add_entry` (Async: Embed -> Struct -> Upsert)
     - [x] Implement `generate_session_name` (LLM call logic)
-  - [ ] **2C. Retrieval Logic**
-    - [ ] Implement `get_recent_context` (Search by session_id)
-    - [ ] Implement `delete_session` (Delete by payload filter)
+  - [x] **2C. Retrieval Logic**
+    - [x] Implement `get_recent_context` (Search by session_id)
+    - [x] Implement `delete_session` (Delete by payload filter)
 
 - [ ] **Phase 3: Context Pipeline (Execution)**
-  - [ ] **3A. Engine Refactor**
-    - [ ] Rename `BasicRAG` to `ContextEngine`
-    - [ ] Configure `ContextEngine` to hold both Library and Journal retrievers
+  - [x] **3A. Engine Refactor**
+    - [x] Rename `BasicRAG` to `ContextEngine`
+    - [x] Configure `ContextEngine` to hold both Library and Journal retrievers
   - [ ] **3B. Service Layer**
     - [ ] Add `use_context` arg to `ChatService`
     - [ ] Implement "Hybrid Retrieval" (Profile + Library + Journal)

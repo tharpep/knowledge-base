@@ -1,25 +1,32 @@
 """
-RAG System Orchestrator
-Coordinates vector storage, retrieval, and generation components
+Context Engine (formerly RAG System Orchestrator)
+Coordinates vector storage, retrieval, and generation components.
+Supports dual-tier retrieval: Library (documents) and Journal (chat history).
 """
 
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 from llm.gateway import AIGateway
 from .vector_store import VectorStore
 from .retriever import DocumentRetriever
+from .journal import JournalManager
 from core.config import get_config
 
-
-class BasicRAG:
-    """RAG system that orchestrates vector storage, retrieval, and generation"""
+class ContextEngine:
+    """
+    Context Engine with dual-tier retrieval.
     
-    def __init__(self, collection_name=None, use_persistent=None):
+    Handles both Library (document) and Journal (chat history) retrieval
+    for comprehensive context injection into LLM prompts.
+    """
+    
+    def __init__(self, collection_name=None, use_persistent=None, enable_journal=True):
         """
-        Initialize RAG system
+        Initialize Context Engine
         
         Args:
-            collection_name: Name for Qdrant collection (uses config default if None)
+            collection_name: Name for Library Qdrant collection (uses config default if None)
             use_persistent: If True, use persistent Qdrant storage (uses config default if None)
+            enable_journal: If True, initialize Journal tier for chat history retrieval
         """
         self.config = get_config()
         self.collection_name = collection_name or self.config.rag_collection_name
@@ -33,15 +40,26 @@ class BasicRAG:
         )
         self.retriever = DocumentRetriever(model_name=self.config.embedding_model)
         
-        # Setup collection
+        # Journal tier (optional)
+        self._journal: Optional[JournalManager] = None
+        self._enable_journal = enable_journal
+        
+        # Setup Library collection
         self._setup_collection()
     
     def _setup_collection(self):
-        """Setup the vector collection"""
+        """Setup the Library vector collection"""
         embedding_dim = self.retriever.get_embedding_dimension()
         success = self.vector_store.setup_collection(self.collection_name, embedding_dim)
         if not success:
             raise Exception(f"Failed to setup collection: {self.collection_name}")
+    
+    @property
+    def journal(self) -> Optional[JournalManager]:
+        """Lazy-load Journal tier."""
+        if self._enable_journal and self._journal is None:
+            self._journal = JournalManager(vector_store=self.vector_store)
+        return self._journal
     
     def add_documents(self, documents, metadata: dict = None):
         """
@@ -306,30 +324,34 @@ class BasicRAG:
         except Exception as e:
             return {"error": f"Failed to delete chunks for {blob_id}: {str(e)}"}
 
-
 # Singleton instance
-_rag_instance: "BasicRAG | None" = None
+_context_engine_instance: "ContextEngine | None" = None
 
 
-def get_rag() -> BasicRAG:
+def get_rag() -> "ContextEngine":
     """
-    Get the global BasicRAG instance (singleton pattern).
+    Get the global ContextEngine instance (singleton pattern).
     
     Initializes once on first call, reuses on subsequent calls.
     This avoids repeated Qdrant connections and embedding model loads.
     
     Returns:
-        BasicRAG instance
+        ContextEngine instance
     """
-    global _rag_instance
-    if _rag_instance is None:
-        _rag_instance = BasicRAG()
-    return _rag_instance
+    global _context_engine_instance
+    if _context_engine_instance is None:
+        _context_engine_instance = ContextEngine()
+    return _context_engine_instance
+
+
+# Backward compatibility alias
+BasicRAG = ContextEngine
+_rag_instance = _context_engine_instance
 
 
 def main():
-    """Demo of Basic RAG system"""
-    print("=== Basic RAG Demo ===\n")
+    """Demo of Context Engine"""
+    print("=== Context Engine Demo ===\n")
     
     # Sample documents
     documents = [
@@ -340,10 +362,10 @@ def main():
         "Reinforcement learning is where agents learn optimal behavior by interacting with an environment and receiving rewards.",
     ]
     
-    # Initialize RAG
-    print("1. Initializing RAG system...")
-    rag = BasicRAG()
-    print(f"   Available providers: {rag.gateway.get_available_providers()}")
+    # Initialize Context Engine
+    print("1. Initializing Context Engine...")
+    engine = ContextEngine()
+    print(f"   Available providers: {engine.gateway.get_available_providers()}")
     
     # Add documents
     print("\n2. Adding documents...")
