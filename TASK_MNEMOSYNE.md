@@ -33,9 +33,9 @@
   - [x] **3A. Engine Refactor**
     - [x] Rename `BasicRAG` to `ContextEngine`
     - [x] Configure `ContextEngine` to hold both Library and Journal retrievers
-  - [ ] **3B. Service Layer**
-    - [ ] Add `use_context` arg to `ChatService`
-    - [ ] Implement "Hybrid Retrieval" (Profile + Library + Journal)
+  - [x] **3B. Service Layer**
+    - [x] Add `use_context` arg to `ChatService`
+    - [x] Implement "Hybrid Retrieval" (Profile + Library + Journal)
   - [ ] **3C. Wiring**
     - [ ] Update `app/routes/llm.py` to pass `use_context` flag
 
