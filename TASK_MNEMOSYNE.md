@@ -7,14 +7,14 @@
   - [x] Address security & safety (Delete checks, Auth notes)
 
 - [ ] **Phase 1: Foundation (Config & Registry)**
-  - [ ] **1A. Model Registry**
-    - [ ] Create `core/model_registry.py` with `ModelMetadata` schema
-    - [ ] Populate `MODELS` dict with Nomic, BGE, and Llama definitions
-    - [ ] Implement `get_models_by_tag` helper
-  - [ ] **1B. Configuration Updates**
-    - [ ] Add `hardware_mode` ("gpu"/"cpu") to `core/config.py`
-    - [ ] Add `model_library` and `model_journal` fields (defaulting to Registry values)
-    - [ ] Rename `blob_storage_path` default to `./data/library_blob`
+  - [x] **1A. Model Registry**
+    - [x] Create `core/model_registry.py` with `ModelMetadata` schema
+    - [x] Populate `MODELS` dict with Nomic, BGE, and Llama definitions
+    - [x] Implement `get_models_by_tag` helper
+  - [x] **1B. Configuration Updates**
+    - [x] Add `hardware_mode` ("gpu"/"cpu") to `core/config.py`
+    - [x] Add `model_library` and `model_journal` fields (defaulting to Registry values)
+    - [x] Rename `blob_storage_path` default to `./data/library_blob`
   - [ ] **1C. Verification**
     - [ ] Check `GET /v1/config` returns new hardware/model settings
     - [ ] Verify `rag_collection_name` legacy alias works

@@ -109,8 +109,8 @@ class AppConfig(BaseSettings):
 
     # ===== Blob Storage Configuration =====
     blob_storage_path: str = Field(
-        default="./data/preindex_blob",
-        description="Path to blob storage directory for uploaded files pending indexing"
+        default="./data/library_blob",
+        description="Path to blob storage directory for Library documents"
     )
 
     # ===== RAG Configuration =====
@@ -168,7 +168,21 @@ class AppConfig(BaseSettings):
     # ===== Embedding Model Configuration =====
     embedding_model: str = Field(
         default="sentence-transformers/all-MiniLM-L6-v2",
-        description="Sentence transformer model for embeddings"
+        description="Sentence transformer model for embeddings (legacy - use model_library/model_journal)"
+    )
+    
+    # ===== Mnemosyne: Hardware & Model Selection =====
+    hardware_mode: Literal["gpu", "cpu", "auto"] = Field(
+        default="auto",
+        description="Hardware mode: 'gpu' for GPU-preferred models, 'cpu' for lightweight models, 'auto' for detection"
+    )
+    model_library: str = Field(
+        default="nomic-embed-text-v1.5",
+        description="Embedding model for Library tier (document knowledge). Override from model_registry defaults."
+    )
+    model_journal: str = Field(
+        default="bge-small-en-v1.5",
+        description="Embedding model for Journal tier (chat history). Override from model_registry defaults."
     )
     
     # ===== Worker Configuration =====
