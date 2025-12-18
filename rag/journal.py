@@ -4,9 +4,11 @@ Handles chat history storage and retrieval in Qdrant (Tier 2: The Journal).
 """
 
 import logging
+import uuid
 from datetime import datetime
 from typing import Optional, Literal
 from pydantic import BaseModel
+from qdrant_client.models import PointStruct
 
 from rag.vector_store import VectorStore
 from core.config import get_config
@@ -109,13 +111,37 @@ class JournalManager:
             session_id: Session identifier
             
         Returns:
-            True if entry was added successfully
         """
-        # TODO: Implement in Phase 2B
-        # 1. Generate embedding
-        # 2. Create JournalEntry with timestamp
-        # 3. Upsert to Qdrant
-        raise NotImplementedError("Phase 2B: add_entry")
+        try:
+            # Generate embedding for the content
+            embedding = self.embedder.encode(content).tolist()
+            
+            # Create entry with timestamp
+            entry = JournalEntry(
+                role=role,
+                content=content,
+                session_id=session_id,
+                timestamp=datetime.utcnow().isoformat()
+            )
+            
+            # Create point for Qdrant
+            point = PointStruct(
+                id=str(uuid.uuid4()),
+                vector=embedding,
+                payload=entry.model_dump()
+            )
+            
+            # Upsert to collection
+            added = self.vector_store.add_points(JOURNAL_COLLECTION, [point])
+            
+            if added > 0:
+                logger.debug(f"Added journal entry: {role} in session {session_id}")
+                return True
+            return False
+            
+        except Exception as e:
+            logger.error(f"Failed to add journal entry: {e}")
+            return False
     
     async def generate_session_name(self, messages: list[dict]) -> str:
         """
@@ -125,10 +151,41 @@ class JournalManager:
             messages: List of message dicts with 'role' and 'content'
             
         Returns:
-            Generated session name
+            Generated session name (short, descriptive title)
         """
-        # TODO: Implement in Phase 2B
-        raise NotImplementedError("Phase 2B: generate_session_name")
+        from llm.gateway import AIGateway
+        
+        # Build a summary of the conversation for naming
+        conversation_summary = "\n".join([
+            f"{m.get('role', 'unknown')}: {m.get('content', '')[:200]}"
+            for m in messages[:5]  # Use first 5 messages max
+        ])
+        
+        prompt = f"""Generate a short, descriptive title (3-6 words) for this conversation. 
+Return ONLY the title, no quotes or explanation.
+
+Conversation:
+{conversation_summary}
+
+Title:"""
+        
+        try:
+            gateway = AIGateway()
+            response = gateway.chat(prompt)
+            
+            # Clean up response - take first line, strip quotes/whitespace
+            session_name = response.strip().split('\n')[0].strip('"\'')
+            
+            # Limit length
+            if len(session_name) > 50:
+                session_name = session_name[:47] + "..."
+            
+            return session_name
+            
+        except Exception as e:
+            logger.warning(f"Failed to generate session name via LLM: {e}")
+            # Fallback to timestamp-based name
+            return f"Chat {datetime.utcnow().strftime('%Y-%m-%d %H:%M')}"
     
     # =========================================================================
     # Retrieval Methods (Phase 2C)

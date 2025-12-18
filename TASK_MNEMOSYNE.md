@@ -19,12 +19,12 @@
     - [x] Check `GET /v1/config` returns new hardware/model settings
 
 - [ ] **Phase 2: The Journal Engine (Storage)**
-  - [ ] **2A. Core Class**
-    - [ ] Create `rag/journal.py` with `JournalManager` stub
-    - [ ] Initialize `VectorStore` client within Manager
-  - [ ] **2B. Storage Logic**
-    - [ ] Implement `add_entry` (Async: Embed -> Struct -> Upsert)
-    - [ ] Implement `generate_session_name` (LLM call logic)
+  - [x] **2A. Core Class**
+    - [x] Create `rag/journal.py` with `JournalManager` stub
+    - [x] Initialize `VectorStore` client within Manager
+  - [x] **2B. Storage Logic**
+    - [x] Implement `add_entry` (Async: Embed -> Struct -> Upsert)
+    - [x] Implement `generate_session_name` (LLM call logic)
   - [ ] **2C. Retrieval Logic**
     - [ ] Implement `get_recent_context` (Search by session_id)
     - [ ] Implement `delete_session` (Delete by payload filter)

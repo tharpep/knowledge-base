@@ -177,11 +177,11 @@ class AppConfig(BaseSettings):
         description="Hardware mode: 'gpu' for GPU-preferred models, 'cpu' for lightweight models, 'auto' for detection"
     )
     model_library: str = Field(
-        default="nomic-embed-text-v1.5",
+        default="bge-m3",
         description="Embedding model for Library tier (document knowledge). Override from model_registry defaults."
     )
     model_journal: str = Field(
-        default="bge-small-en-v1.5",
+        default="bge-m3",
         description="Embedding model for Journal tier (chat history). Override from model_registry defaults."
     )
     

@@ -40,21 +40,21 @@ class ModelMetadata(BaseModel):
 
 MODELS: dict[str, ModelMetadata] = {
     # Embedding Models
-    "nomic-embed-text-v1.5": ModelMetadata(
-        name="nomic-embed-text-v1.5",
+    "bge-m3": ModelMetadata(
+        name="BAAI/bge-m3",
         type=ModelType.EMBEDDING,
-        tags=["library", "long-context", "gpu-preferred"],
-        dimension=768,
+        tags=["library", "journal", "multilingual", "long-context", "gpu-preferred"],
+        dimension=1024,
         provider="sentence-transformers",
-        description="Deep knowledge embedding for Library tier. Long context, high accuracy."
+        description="Top-tier multilingual embedding. 8K context, best all-rounder on MTEB."
     ),
     "bge-small-en-v1.5": ModelMetadata(
         name="BAAI/bge-small-en-v1.5",
         type=ModelType.EMBEDDING,
-        tags=["journal", "fast", "cpu-friendly"],
+        tags=["fast", "cpu-friendly"],
         dimension=384,
         provider="sentence-transformers",
-        description="Fast embedding for Journal tier. Optimized for chat recall."
+        description="Lightweight English embedding for resource-constrained environments."
     ),
     
     # LLM Models
