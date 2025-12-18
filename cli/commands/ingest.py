@@ -15,7 +15,7 @@ def ingest(
         raise typer.Exit(1)
 
     try:
-        from rag.rag_setup import BasicRAG
+        from rag.rag_setup import ContextEngine
         from rag.document_ingester import DocumentIngester
         from core.config import get_config
 
@@ -36,7 +36,7 @@ def ingest(
             raise typer.Exit(1)
         
         typer.echo("Initializing RAG system...")
-        rag = BasicRAG()
+        rag = ContextEngine()
         typer.echo("RAG system ready!")
         typer.echo("")
         

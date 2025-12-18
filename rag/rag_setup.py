@@ -344,11 +344,6 @@ def get_rag() -> "ContextEngine":
     return _context_engine_instance
 
 
-# Backward compatibility alias
-BasicRAG = ContextEngine
-_rag_instance = _context_engine_instance
-
-
 def main():
     """Demo of Context Engine"""
     print("=== Context Engine Demo ===\n")

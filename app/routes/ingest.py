@@ -30,7 +30,7 @@ async def ingest_documents(folder_path: Optional[str] = None) -> Dict[str, Any]:
         - errors: List of any errors encountered
         - request_id: Request ID for tracing
     """
-    from rag.rag_setup import BasicRAG
+    from rag.rag_setup import ContextEngine
     from rag.document_ingester import DocumentIngester
     from core.config import get_config
     
@@ -72,7 +72,7 @@ async def ingest_documents(folder_path: Optional[str] = None) -> Dict[str, Any]:
             )
         
         # Initialize RAG system
-        rag = BasicRAG()
+        rag = ContextEngine()
         
         # Initialize ingester
         ingester = DocumentIngester(rag)

@@ -42,7 +42,7 @@ class QueryResponse(BaseModel):
 async def rag_query(request: QueryRequest) -> QueryResponse:
     """Main RAG query endpoint - answers questions using retrieved context."""
     from ..main import gateway
-    from rag.rag_setup import BasicRAG
+    from rag.rag_setup import ContextEngine
     
     # Generate request ID for tracing
     request_id = f"req_{uuid.uuid4().hex[:12]}"
@@ -63,7 +63,7 @@ async def rag_query(request: QueryRequest) -> QueryResponse:
             )
         
         # Initialize RAG system
-        rag = BasicRAG()
+        rag = ContextEngine()
         
         # Query with RAG
         answer, context_docs, context_scores = rag.query(
@@ -122,13 +122,13 @@ async def rag_query(request: QueryRequest) -> QueryResponse:
 @router.get("/stats")
 async def get_rag_stats() -> Dict[str, Any]:
     """Get RAG system statistics."""
-    from rag.rag_setup import BasicRAG
+    from rag.rag_setup import ContextEngine
     
     # Generate request ID for tracing
     request_id = f"req_{uuid.uuid4().hex[:12]}"
     
     try:
-        rag = BasicRAG()
+        rag = ContextEngine()
         stats = rag.get_stats()
         stats["request_id"] = request_id
         return stats

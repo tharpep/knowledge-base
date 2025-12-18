@@ -12,7 +12,7 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent.parent
 sys.path.append(str(project_root))
 
-from rag.rag_setup import BasicRAG
+from rag.rag_setup import ContextEngine
 from rag.document_ingester import DocumentIngester
 from core.config import get_config
 
@@ -30,7 +30,7 @@ class TestRAGSystem:
         """Test RAG system initialization"""
         print("\n=== Testing RAG Initialization ===")
         
-        rag = BasicRAG(
+        rag = ContextEngine(
             collection_name="test_docs",
             use_persistent=False
         )
@@ -43,7 +43,7 @@ class TestRAGSystem:
         """Test document ingestion process"""
         print("\n=== Testing Document Ingestion ===")
         
-        rag = BasicRAG(
+        rag = ContextEngine(
             collection_name="test_docs",
             use_persistent=False
         )
@@ -66,7 +66,7 @@ class TestRAGSystem:
         """Test vector search functionality"""
         print("\n=== Testing Vector Search ===")
         
-        rag = BasicRAG(
+        rag = ContextEngine(
             collection_name="test_docs",
             use_persistent=False
         )
@@ -89,7 +89,7 @@ class TestRAGSystem:
         """Test RAG query functionality (without LLM - just retrieval)"""
         print("\n=== Testing RAG Query (Retrieval Only) ===")
         
-        rag = BasicRAG(
+        rag = ContextEngine(
             collection_name="test_docs",
             use_persistent=False
         )
@@ -115,7 +115,7 @@ class TestRAGSystem:
         """Test collection statistics"""
         print("\n=== Testing Collection Stats ===")
         
-        rag = BasicRAG(
+        rag = ContextEngine(
             collection_name="test_docs",
             use_persistent=False
         )
@@ -144,7 +144,7 @@ def test_quick_demo():
         "Docker containers provide isolated environments for running applications consistently across different systems."
     ]
     
-    rag = BasicRAG(use_persistent=False)  # In-memory for demo
+    rag = ContextEngine(use_persistent=False)  # In-memory for demo
     count = rag.add_documents(sample_docs)
     
     assert count == len(sample_docs), f"Expected {len(sample_docs)} documents, got {count}"

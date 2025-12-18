@@ -6,7 +6,7 @@ Basic testing for RAG functionality
 import os
 import time
 from pathlib import Path
-from .rag_setup import BasicRAG
+from .rag_setup import ContextEngine
 from .document_ingester import DocumentIngester
 from core.config import get_config
 from core.utils.logging_config import log_rag_result
@@ -25,7 +25,7 @@ def run_rag_demo(mode="automated"):
         # Initialize RAG system (use in-memory for demo)
         print("\nInitializing RAG system...")
         print("Using in-memory storage for demo (no Docker required)")
-        rag = BasicRAG(use_persistent=False)
+        rag = ContextEngine(use_persistent=False)
         
         # Load documents
         print("Loading documents...")

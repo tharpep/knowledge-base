@@ -26,8 +26,8 @@ class RAGAnswerTool(BaseTool):
     def _get_rag(self):
         """Lazy load RAG system."""
         if self._rag is None:
-            from rag.rag_setup import BasicRAG
-            self._rag = BasicRAG()
+            from rag.rag_setup import ContextEngine
+            self._rag = ContextEngine()
         return self._rag
     
     @property

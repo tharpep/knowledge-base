@@ -44,7 +44,7 @@ class ChatService:
         
         Args:
             config: Application configuration
-            rag_instance: Optional pre-initialized BasicRAG instance (for performance)
+            rag_instance: Optional pre-initialized ContextEngine instance (for performance)
         """
         self.config = config
         self._rag_instance = rag_instance
@@ -276,8 +276,8 @@ class ChatService:
             if self._rag_instance is not None:
                 rag = self._rag_instance
             else:
-                from rag.rag_setup import BasicRAG
-                rag = BasicRAG()
+                from rag.rag_setup import ContextEngine
+                rag = ContextEngine()
             
             # Retrieve RAG context
             rag_results = rag.get_context_for_chat(

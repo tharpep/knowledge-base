@@ -7,13 +7,13 @@ import os
 import glob
 from pathlib import Path
 from typing import List, Dict, Any, Union
-from .rag_setup import BasicRAG
+from .rag_setup import ContextEngine
 
 
 class DocumentIngester:
     """Handles document ingestion and preprocessing"""
     
-    def __init__(self, rag_system: BasicRAG):
+    def __init__(self, rag_system: ContextEngine):
         """
         Initialize document ingester
         
@@ -200,7 +200,7 @@ def main():
     
     # Initialize RAG with persistent storage
     print("1. Initializing RAG with persistent storage...")
-    rag = BasicRAG(use_persistent=True)
+    rag = ContextEngine(use_persistent=True)
     
     # Initialize ingester
     ingester = DocumentIngester(rag)
