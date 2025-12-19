@@ -106,9 +106,38 @@ async def lifespan(app: FastAPI):
         config = get_config()
         if config.chat_context_enabled:
             logger.info("Initializing RAG system...")
-            from rag.rag_setup import ContextEngine
-            rag_instance = ContextEngine()
+            from rag.rag_setup import get_rag
+            rag_instance = get_rag()
             logger.info("RAG system initialized and ready")
+            
+            # Start background worker for ingestion
+            try:
+                import asyncio
+                from arq.worker import Worker
+                from rag.workers import WorkerSettings
+                
+                # Run worker in background task
+                logger.info("Starting background ingestion worker...")
+                
+                # Instantiate worker directly to avoid loop conflict
+                # WorkerSettings doesn't support direct init in all versions, so we unpack
+                worker = Worker(
+                    functions=WorkerSettings.functions,
+                    redis_settings=WorkerSettings.redis_settings,
+                    max_jobs=WorkerSettings.max_jobs,
+                    job_timeout=WorkerSettings.job_timeout
+                )
+                
+                # Store worker in app state for cleanup
+                app.state.worker = worker
+                
+                async def start_worker():
+                    await worker.async_run()
+                
+                app.state.worker_task = asyncio.create_task(start_worker())
+                logger.info("Background worker started")
+            except Exception as e:
+                logger.error(f"Failed to start background worker: {e}")
         else:
             logger.info("RAG is disabled in config")
     except Exception as e:
@@ -138,6 +167,19 @@ async def lifespan(app: FastAPI):
     
     # Shutdown
     logger.info("Shutting down Personal AI Assistant API")
+    
+    # Stop background worker
+    if hasattr(app.state, "worker") and app.state.worker:
+        logger.info("Stopping background worker...")
+        await app.state.worker.close()
+        logger.info("Background worker stopped")
+        
+    if hasattr(app.state, "worker_task") and app.state.worker_task:
+        try:
+            await app.state.worker_task
+        except asyncio.CancelledError:
+            pass
+    
     if gateway:
         try:
             await gateway.__aexit__(None, None, None)

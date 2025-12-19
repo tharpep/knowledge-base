@@ -36,7 +36,8 @@ def ingest(
             raise typer.Exit(1)
         
         typer.echo("Initializing RAG system...")
-        rag = ContextEngine()
+        from rag.rag_setup import get_rag
+        rag = get_rag()
         typer.echo("RAG system ready!")
         typer.echo("")
         

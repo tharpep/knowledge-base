@@ -58,8 +58,9 @@ def chat(
         if config.chat_context_enabled and config.chat_library_enabled:
             try:
                 typer.echo("Initializing RAG system...")
-                from rag.rag_setup import ContextEngine
-                rag_instance = ContextEngine()
+                typer.echo("Initializing RAG system...")
+                from rag.rag_setup import get_rag
+                rag_instance = get_rag()
                 typer.echo("RAG system ready!")
             except Exception as e:
                 typer.echo(f"Warning: RAG initialization failed: {e}", err=True)

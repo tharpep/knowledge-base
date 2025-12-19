@@ -16,13 +16,13 @@ def query(
         raise typer.Exit(1)
 
     try:
-        from rag.rag_setup import ContextEngine
+        from rag.rag_setup import get_rag
         from core.config import get_config
 
         config = get_config()
         
         typer.echo("Initializing RAG system...")
-        rag = ContextEngine()
+        rag = get_rag()
         typer.echo("RAG system ready!")
         typer.echo("")
         

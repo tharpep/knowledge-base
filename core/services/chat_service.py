@@ -267,8 +267,8 @@ class ChatService:
             if self._context_engine is not None:
                 engine = self._context_engine
             else:
-                from rag.rag_setup import ContextEngine
-                self._context_engine = ContextEngine()
+                from rag.rag_setup import get_rag
+                self._context_engine = get_rag()
                 engine = self._context_engine
             
             # Retrieve Library context
@@ -424,8 +424,8 @@ class ChatService:
         try:
             # Get Journal from ContextEngine
             if self._context_engine is None:
-                from rag.rag_setup import ContextEngine
-                self._context_engine = ContextEngine()
+                from rag.rag_setup import get_rag
+                self._context_engine = get_rag()
             
             journal = self._context_engine.journal
             if journal is None:

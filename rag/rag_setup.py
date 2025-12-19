@@ -32,6 +32,10 @@ class ContextEngine:
         self.collection_name = collection_name or self.config.library_collection_name
         
         # Initialize components with config values
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"Initialized ContextEngine (ID: {id(self)})")
+        
         self.gateway = AIGateway()
         self.vector_store = VectorStore(
             use_persistent=use_persistent if use_persistent is not None else self.config.storage_use_persistent,

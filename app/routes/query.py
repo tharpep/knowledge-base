@@ -17,13 +17,13 @@ router = APIRouter()
 @router.get("/stats")
 async def get_library_stats() -> Dict[str, Any]:
     """Get Library system statistics."""
-    from rag.rag_setup import ContextEngine
+    from rag.rag_setup import get_rag
     
     # Generate request ID for tracing
     request_id = f"req_{uuid.uuid4().hex[:12]}"
     
     try:
-        engine = ContextEngine()
+        engine = get_rag()
         stats = engine.get_stats()
         stats["request_id"] = request_id
         return stats
