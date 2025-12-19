@@ -23,7 +23,7 @@ def ingest(
         
         # Use config folder if not provided
         if folder_path is None:
-            folder_path = config.rag_documents_folder
+            folder_path = config.library_documents_folder
         
         # Validate folder path
         folder = Path(folder_path)

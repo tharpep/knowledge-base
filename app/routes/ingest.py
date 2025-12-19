@@ -19,7 +19,7 @@ async def ingest_documents(folder_path: Optional[str] = None) -> Dict[str, Any]:
     
     Args:
         folder_path: Path to folder containing documents to ingest. 
-                     If not provided, uses config.rag_documents_folder (corpus or documents based on rag_use_documents_folder)
+                     If not provided, uses config.library_documents_folder (corpus or documents based on library_use_documents_folder)
         
     Returns:
         Dictionary with ingestion results including:
@@ -41,7 +41,7 @@ async def ingest_documents(folder_path: Optional[str] = None) -> Dict[str, Any]:
         # Use config folder if not provided
         config = get_config()
         if folder_path is None:
-            folder_path = config.rag_documents_folder
+            folder_path = config.library_documents_folder
         
         # Validate folder path
         folder = Path(folder_path)

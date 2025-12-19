@@ -3,7 +3,7 @@ Document Retriever
 Handles embedding generation and document retrieval logic
 """
 
-from sentence_transformers import SentenceTransformer
+
 from qdrant_client.models import PointStruct
 from typing import List, Tuple
 import uuid
@@ -20,8 +20,23 @@ class DocumentRetriever:
             model_name: Name of the sentence transformer model
         """
         self.model_name = model_name
-        self.retriever = SentenceTransformer(model_name)
-        self.embedding_dim = self.retriever.get_sentence_embedding_dimension()
+        self._retriever = None
+        self._embedding_dim = None
+
+    @property
+    def retriever(self):
+        """Lazy-load the sentence transformer model"""
+        if self._retriever is None:
+            from sentence_transformers import SentenceTransformer
+            self._retriever = SentenceTransformer(self.model_name)
+        return self._retriever
+
+    @property
+    def embedding_dim(self) -> int:
+        """Get embedding dimension (lazy)"""
+        if self._embedding_dim is None:
+             self._embedding_dim = self.retriever.get_sentence_embedding_dimension()
+        return self._embedding_dim
     
     def encode_documents(self, documents: List[str]) -> List[List[float]]:
         """

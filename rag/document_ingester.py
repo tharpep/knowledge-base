@@ -207,7 +207,7 @@ def main():
     
     # Get folder from config
     config = get_config()
-    documents_folder = config.rag_documents_folder
+    documents_folder = config.library_documents_folder
     print(f"Using documents folder: {documents_folder}")
     
     # Check what files are available

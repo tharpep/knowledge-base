@@ -34,7 +34,7 @@ class ContextEngine:
         # Initialize components with config values
         self.gateway = AIGateway()
         self.vector_store = VectorStore(
-            use_persistent=use_persistent if use_persistent is not None else self.config.library_use_persistent,
+            use_persistent=use_persistent if use_persistent is not None else self.config.storage_use_persistent,
             qdrant_host=self.config.qdrant_host,
             qdrant_port=self.config.qdrant_port
         )
@@ -49,7 +49,18 @@ class ContextEngine:
     
     def _setup_collection(self):
         """Setup the Library vector collection"""
-        embedding_dim = self.retriever.get_embedding_dimension()
+        # Try to get dimension from registry to avoid eager loading of model
+        try:
+            from core.model_registry import get_configured_model
+            model_info = get_configured_model("library")
+            embedding_dim = model_info.dimension
+            if not embedding_dim:
+                # If dimension missing in registry, fall back to loading model
+                embedding_dim = self.retriever.get_embedding_dimension()
+        except Exception:
+            # If model not in registry, fall back to loading model
+            embedding_dim = self.retriever.get_embedding_dimension()
+            
         success = self.vector_store.setup_collection(self.collection_name, embedding_dim)
         if not success:
             raise Exception(f"Failed to setup collection: {self.collection_name}")

@@ -106,12 +106,13 @@ class AppConfig(BaseSettings):
         default="./data/library_blob",
         description="Path to blob storage directory for Library documents"
     )
-
-    # ===== Library Storage Configuration =====
-    library_use_persistent: bool = Field(
+    # ===== Vector Storage Configuration (shared by Library + Journal) =====
+    storage_use_persistent: bool = Field(
         default=True,
-        description="Use persistent vector storage (True) or in-memory (False)"
+        description="Use persistent Qdrant server (True) or in-memory (False)"
     )
+    
+    # ===== Library Configuration =====
     library_collection_name: str = Field(
         default="library_docs",
         description="Qdrant collection name for Library documents"
@@ -120,8 +121,6 @@ class AppConfig(BaseSettings):
         default=True,
         description="Clear collection before ingesting new documents"
     )
-    
-    # ===== Document Chunking Configuration =====
     library_chunk_size: int = Field(
         default=1000,
         ge=100,
@@ -133,6 +132,12 @@ class AppConfig(BaseSettings):
         ge=0,
         le=500,
         description="Overlap characters between chunks (0-500)"
+    )
+    
+    # ===== Journal Configuration =====
+    journal_collection_name: str = Field(
+        default="journal_entries",
+        description="Qdrant collection name for Journal (chat history)"
     )
     
     # ===== Embedding Model Configuration =====
@@ -197,9 +202,10 @@ class AppConfig(BaseSettings):
     )
 
     # ===== Document Source Configuration =====
-    rag_use_documents_folder: bool = Field(
+    # ===== Document Source Configuration =====
+    library_use_documents_folder: bool = Field(
         default=False,
-        description="Use data/documents folder instead of data/corpus for RAG ingestion (True = documents, False = corpus)"
+        description="Use data/documents folder instead of data/corpus for Library ingestion (True = documents, False = corpus)"
     )
 
     # ===== Logging/Output Configuration =====
@@ -305,9 +311,9 @@ class AppConfig(BaseSettings):
         return f"./tuned_models/{model_suffix}/model_registry.json"
 
     @property
-    def rag_documents_folder(self) -> str:
+    def library_documents_folder(self) -> str:
         """Get the documents folder path based on config"""
-        if self.rag_use_documents_folder:
+        if self.library_use_documents_folder:
             return "./data/documents"
         else:
             return "./data/corpus"
@@ -331,13 +337,5 @@ def get_config() -> AppConfig:
     return _config
 
 
-# Backward compatibility functions
-def get_rag_config() -> AppConfig:
-    """Get RAG configuration (backward compatibility - returns full config)"""
-    return get_config()
 
-
-def get_tuning_config() -> AppConfig:
-    """Get tuning configuration (backward compatibility - returns full config)"""
-    return get_config()
 

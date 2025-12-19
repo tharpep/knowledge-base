@@ -16,9 +16,6 @@ from core.model_registry import get_configured_model
 
 logger = logging.getLogger(__name__)
 
-# Collection name for journal entries
-JOURNAL_COLLECTION = "myai_journal"
-
 
 class JournalEntry(BaseModel):
     """
@@ -59,7 +56,7 @@ class JournalManager:
             self.vector_store = vector_store
         else:
             self.vector_store = VectorStore(
-                use_persistent=self.config.library_use_persistent,
+                use_persistent=self.config.storage_use_persistent,
                 qdrant_host=self.config.qdrant_host,
                 qdrant_port=self.config.qdrant_port
             )
@@ -79,7 +76,7 @@ class JournalManager:
     def _setup_collection(self) -> None:
         """Create journal collection if it doesn't exist."""
         self.vector_store.setup_collection(
-            collection_name=JOURNAL_COLLECTION,
+            collection_name=self.config.journal_collection_name,
             embedding_dim=self.embedding_dim
         )
     
@@ -132,7 +129,7 @@ class JournalManager:
             )
             
             # Upsert to collection
-            added = self.vector_store.add_points(JOURNAL_COLLECTION, [point])
+            added = self.vector_store.add_points(self.config.journal_collection_name, [point])
             
             if added > 0:
                 logger.debug(f"Added journal entry: {role} in session {session_id}")
@@ -228,7 +225,7 @@ Title:"""
             
             # Search with filter
             results = self.vector_store.client.query_points(
-                collection_name=JOURNAL_COLLECTION,
+                collection_name=self.config.journal_collection_name,
                 query=query_vector,
                 query_filter=query_filter,
                 limit=limit
@@ -264,7 +261,7 @@ Title:"""
         try:
             # Delete by payload filter
             self.vector_store.client.delete(
-                collection_name=JOURNAL_COLLECTION,
+                collection_name=self.config.journal_collection_name,
                 points_selector=Filter(
                     must=[
                         FieldCondition(
@@ -288,4 +285,4 @@ Title:"""
     
     def get_stats(self) -> dict:
         """Get journal collection statistics."""
-        return self.vector_store.get_collection_stats(JOURNAL_COLLECTION)
+        return self.vector_store.get_collection_stats(self.config.journal_collection_name)

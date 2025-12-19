@@ -38,7 +38,7 @@ def config() -> None:
         typer.echo("")
 
         typer.echo("Library Configuration:")
-        typer.echo(f"  Storage: {'Persistent' if config.library_use_persistent else 'In-memory'}")
+        typer.echo(f"  Storage: {'Persistent' if config.storage_use_persistent else 'In-memory'}")
         typer.echo(f"  Collection: {config.library_collection_name}")
         typer.echo(f"  Chunk Size: {config.library_chunk_size}")
         typer.echo(f"  Chunk Overlap: {config.library_chunk_overlap}")

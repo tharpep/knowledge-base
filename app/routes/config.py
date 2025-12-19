@@ -95,7 +95,7 @@ async def get_config() -> Dict[str, Any]:
                 "library_collection_name": config.library_collection_name,
                 "library_chunk_size": config.library_chunk_size,
                 "library_chunk_overlap": config.library_chunk_overlap,
-                "library_use_persistent": config.library_use_persistent,
+                "storage_use_persistent": config.storage_use_persistent,
                 
                 # Embedding
                 "embedding_model": config.embedding_model,
