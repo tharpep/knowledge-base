@@ -36,8 +36,8 @@
   - [x] **3B. Service Layer**
     - [x] Add `use_context` arg to `ChatService`
     - [x] Implement "Hybrid Retrieval" (Profile + Library + Journal)
-  - [ ] **3C. Wiring**
-    - [ ] Update `app/routes/llm.py` to pass `use_context` flag
+  - [x] **3C. Wiring**
+    - [x] Update `app/routes/llm.py` to pass `use_context` flag
 
 - [ ] **Phase 4: API & Data Management**
   - [ ] **4A. Memory Endpoints**

@@ -37,10 +37,13 @@ class ChatCompletionRequest(BaseModel):
     temperature: Optional[float] = Field(None, ge=0.0, le=2.0, description="Sampling temperature")
     top_p: Optional[float] = Field(None, ge=0.0, le=1.0, description="Top-p sampling")
     max_tokens: Optional[int] = Field(None, gt=0, description="Maximum tokens to generate")
-    use_rag: Optional[bool] = Field(None, description="Enable RAG context retrieval (overrides config default)")
-    rag_top_k: Optional[int] = Field(None, ge=1, le=100, description="Top-k documents to retrieve for RAG (overrides config default)")
+    use_library: Optional[bool] = Field(None, description="Enable Library (document) context retrieval")
+    use_journal: Optional[bool] = Field(None, description="Enable Journal (chat history) context retrieval")
+    library_top_k: Optional[int] = Field(None, ge=1, le=100, description="Top-k documents to retrieve from Library")
+    journal_top_k: Optional[int] = Field(None, ge=1, le=50, description="Top-k entries to retrieve from Journal")
+    session_id: Optional[str] = Field(None, description="Session ID for Journal context filtering")
     system_prompt: Optional[str] = Field(None, description="Custom system prompt (overrides default)")
-    rag_prompt_template: Optional[str] = Field(None, description="Custom RAG prompt template (overrides default)")
+    context_prompt_template: Optional[str] = Field(None, description="Custom context prompt template (overrides default)")
 
 
 class EmbeddingRequest(BaseModel):
@@ -149,15 +152,18 @@ async def chat_completions(request: ChatCompletionRequest) -> Dict[str, Any]:
         from core.services import ChatService
         from ..main import rag_instance
         
-        chat_service = ChatService(config, rag_instance=rag_instance)
+        chat_service = ChatService(config, context_engine=rag_instance)
         message_result = chat_service.prepare_chat_message(
             user_message=user_message,
             conversation_history=messages[:-1],  # All messages except the current one
-            use_rag=request.use_rag,
-            rag_top_k=request.rag_top_k,
+            use_library=request.use_library,
+            use_journal=request.use_journal,
+            session_id=request.session_id,
+            library_top_k=request.library_top_k,
+            journal_top_k=request.journal_top_k,
             similarity_threshold=None,  # Use config default
             system_prompt=request.system_prompt,
-            rag_prompt_template=request.rag_prompt_template
+            context_prompt_template=request.context_prompt_template
         )
         
         prep_time = (time.time() - prep_start) * 1000
