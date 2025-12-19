@@ -13,6 +13,7 @@ from qdrant_client.models import PointStruct
 from rag.vector_store import VectorStore
 from core.config import get_config
 from core.model_registry import get_configured_model
+from core.session_store import get_session_store
 
 logger = logging.getLogger(__name__)
 
@@ -133,6 +134,13 @@ class JournalManager:
             
             if added > 0:
                 logger.debug(f"Added journal entry: {role} in session {session_id}")
+                # Sync with SQLite session store
+                try:
+                    session_store = get_session_store()
+                    session_store.upsert_session(session_id)
+                    session_store.increment_message_count(session_id)
+                except Exception as e:
+                    logger.warning(f"Failed to sync session to SQLite: {e}")
                 return True
             return False
             
@@ -271,6 +279,13 @@ Title:"""
                     ]
                 )
             )
+            
+            # Also delete from SQLite session store
+            try:
+                session_store = get_session_store()
+                session_store.delete_session(session_id)
+            except Exception as e:
+                logger.warning(f"Failed to delete session from SQLite: {e}")
             
             logger.info(f"Deleted journal entries for session: {session_id}")
             return True

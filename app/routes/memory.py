@@ -19,22 +19,14 @@ async def list_sessions(
     
     Returns:
         Dictionary with:
-        - sessions: List of session metadata (session_id, entry_count, last_activity)
+        - sessions: List of session metadata (session_id, name, message_count, last_activity)
         - total: Total number of sessions
     """
-    from rag.rag_setup import get_rag
+    from core.session_store import get_session_store
     
     try:
-        context_engine = get_rag()
-        
-        if not context_engine._journal_manager:
-            return {
-                "sessions": [],
-                "total": 0,
-                "message": "Journal is not initialized"
-            }
-        
-        sessions = context_engine._journal_manager.list_sessions(limit=limit)
+        session_store = get_session_store()
+        sessions = session_store.list_sessions(limit=limit)
         
         return {
             "sessions": sessions,
