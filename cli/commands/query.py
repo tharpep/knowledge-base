@@ -43,7 +43,7 @@ def query(
                     break
                 
                 # Use config defaults if not specified
-                context_limit = top_k if top_k is not None else config.rag_top_k
+                context_limit = top_k if top_k is not None else config.chat_library_top_k
                 
                 typer.echo(f"\nQuerying: {question}")
                 typer.echo(f"Retrieving top {context_limit} documents...")
@@ -72,7 +72,7 @@ def query(
         else:
             # Single query mode
             # Use config defaults if not specified
-            context_limit = top_k if top_k is not None else config.rag_top_k
+            context_limit = top_k if top_k is not None else config.chat_library_top_k
             
             typer.echo(f"Querying: {question}")
             typer.echo(f"Retrieving top {context_limit} documents...")

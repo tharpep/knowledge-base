@@ -59,7 +59,7 @@ class JournalManager:
             self.vector_store = vector_store
         else:
             self.vector_store = VectorStore(
-                use_persistent=self.config.rag_use_persistent,
+                use_persistent=self.config.library_use_persistent,
                 qdrant_host=self.config.qdrant_host,
                 qdrant_port=self.config.qdrant_port
             )

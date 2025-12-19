@@ -70,8 +70,8 @@ async def process_document(ctx: dict, blob_id: str) -> dict:
         config = get_config()
         chunks = ingester._chunk_text(
             processed_text, 
-            max_chunk_size=config.rag_chunk_size,
-            overlap=config.rag_chunk_overlap
+            max_chunk_size=config.library_chunk_size,
+            overlap=config.library_chunk_overlap
         )
         logger.info(f"[Worker] Created {len(chunks)} chunks")
         

@@ -41,12 +41,6 @@ class AppConfig(BaseSettings):
         description="Default Ollama model (local)"
     )
     
-    # Legacy: model_default for backward compatibility (used for Ollama)
-    model_default: str = Field(
-        default="llama3.2:1b",
-        description="Legacy default model (use provider-specific models instead)"
-    )
-    
     # Previously tested Ollama models (commented for reference):
     # - llama3.2:1b (current default - lightweight, fast)
     # - qwen3:8b (larger model, better quality, requires more resources)
@@ -113,52 +107,28 @@ class AppConfig(BaseSettings):
         description="Path to blob storage directory for Library documents"
     )
 
-    # ===== RAG Configuration =====
-    rag_use_persistent: bool = Field(
+    # ===== Library Storage Configuration =====
+    library_use_persistent: bool = Field(
         default=True,
         description="Use persistent vector storage (True) or in-memory (False)"
     )
-    rag_collection_name: str = Field(
-        default="simrag_docs",
-        description="Qdrant collection name for RAG documents"
+    library_collection_name: str = Field(
+        default="library_docs",
+        description="Qdrant collection name for Library documents"
     )
-    rag_clear_on_ingest: bool = Field(
+    library_clear_on_ingest: bool = Field(
         default=True,
         description="Clear collection before ingesting new documents"
     )
-    rag_top_k: int = Field(
-        default=5,
-        ge=1,
-        le=20,
-        description="Number of documents to retrieve for RAG (1-20)"
-    )
-    rag_similarity_threshold: float = Field(
-        default=0.7,
-        ge=0.0,
-        le=1.0,
-        description="Minimum similarity score for retrieval (0.0-1.0)"
-    )
-    rag_max_tokens: int = Field(
-        default=200,
-        ge=50,
-        le=500,
-        description="Maximum tokens in RAG response (50-500)"
-    )
-    rag_temperature: float = Field(
-        default=0.7,
-        ge=0.0,
-        le=1.0,
-        description="Temperature for RAG generation (0.0-1.0)"
-    )
     
-    # ===== RAG Chunking Configuration =====
-    rag_chunk_size: int = Field(
+    # ===== Document Chunking Configuration =====
+    library_chunk_size: int = Field(
         default=1000,
         ge=100,
         le=5000,
         description="Maximum characters per chunk when processing documents (100-5000)"
     )
-    rag_chunk_overlap: int = Field(
+    library_chunk_overlap: int = Field(
         default=100,
         ge=0,
         le=500,
@@ -167,22 +137,14 @@ class AppConfig(BaseSettings):
     
     # ===== Embedding Model Configuration =====
     embedding_model: str = Field(
-        default="sentence-transformers/all-MiniLM-L6-v2",
-        description="Sentence transformer model for embeddings (legacy - use model_library/model_journal)"
+        default="BAAI/bge-m3",
+        description="Sentence transformer model for embeddings (used by both Library and Journal)"
     )
     
-    # ===== Mnemosyne: Hardware & Model Selection =====
+    # ===== Mnemosyne: Hardware Selection =====
     hardware_mode: Literal["gpu", "cpu", "auto"] = Field(
         default="auto",
         description="Hardware mode: 'gpu' for GPU-preferred models, 'cpu' for lightweight models, 'auto' for detection"
-    )
-    model_library: str = Field(
-        default="bge-m3",
-        description="Embedding model for Library tier (document knowledge). Override from model_registry defaults."
-    )
-    model_journal: str = Field(
-        default="bge-m3",
-        description="Embedding model for Journal tier (chat history). Override from model_registry defaults."
     )
     
     # ===== Worker Configuration =====
@@ -298,11 +260,9 @@ class AppConfig(BaseSettings):
             return self.model_anthropic
         elif self.provider_name == "purdue":
             return self.model_purdue
-        elif self.provider_name == "ollama":
-            return self.model_ollama
         else:
-            # Fallback to legacy model_default
-            return self.model_default
+            # Default to Ollama model
+            return self.model_ollama
     
     def get_model_for_provider(self, provider: str) -> str:
         """Get default model for a specific provider"""
@@ -310,10 +270,8 @@ class AppConfig(BaseSettings):
             return self.model_anthropic
         elif provider == "purdue":
             return self.model_purdue
-        elif provider == "ollama":
-            return self.model_ollama
         else:
-            return self.model_default
+            return self.model_ollama
 
     @property
     def use_ollama(self) -> bool:
@@ -322,7 +280,7 @@ class AppConfig(BaseSettings):
 
     def _get_model_suffix(self) -> str:
         """Extract model size suffix from model name for directory naming"""
-        model_lower = self.model_default.lower()
+        model_lower = self.model_ollama.lower()
         if "1b" in model_lower:
             return "1b"
         elif "8b" in model_lower:

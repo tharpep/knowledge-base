@@ -28,8 +28,8 @@ def config() -> None:
         typer.echo("")
 
         typer.echo("Model Configuration:")
-        typer.echo(f"  Default Model: {config.model_default}")
         typer.echo(f"  Active Model: {config.model_name}")
+        typer.echo(f"  Embedding Model: {config.embedding_model}")
         typer.echo("")
 
         typer.echo("Ollama Configuration:")
@@ -37,21 +37,19 @@ def config() -> None:
         typer.echo(f"  Timeout: {config.ollama_timeout}s")
         typer.echo("")
 
-        typer.echo("RAG Configuration:")
-        typer.echo(f"  Storage: {'Persistent' if config.rag_use_persistent else 'In-memory'}")
-        typer.echo(f"  Collection: {config.rag_collection_name}")
-        typer.echo(f"  Top-K: {config.rag_top_k}")
-        typer.echo(f"  Similarity Threshold: {config.rag_similarity_threshold}")
-        typer.echo(f"  Max Tokens: {config.rag_max_tokens}")
-        typer.echo(f"  Temperature: {config.rag_temperature}")
+        typer.echo("Library Configuration:")
+        typer.echo(f"  Storage: {'Persistent' if config.library_use_persistent else 'In-memory'}")
+        typer.echo(f"  Collection: {config.library_collection_name}")
+        typer.echo(f"  Chunk Size: {config.library_chunk_size}")
+        typer.echo(f"  Chunk Overlap: {config.library_chunk_overlap}")
         typer.echo("")
 
-        typer.echo("Tuning Configuration:")
-        typer.echo(f"  Device: {config.tuning_device}")
-        typer.echo(f"  Batch Size: {config.tuning_batch_size}")
-        typer.echo(f"  Epochs: {config.tuning_num_epochs}")
-        typer.echo(f"  Learning Rate: {config.tuning_learning_rate}")
-        typer.echo(f"  Output Dir: {config.output_dir}")
+        typer.echo("Chat Context Configuration:")
+        typer.echo(f"  Context Enabled: {config.chat_context_enabled}")
+        typer.echo(f"  Library Enabled: {config.chat_library_enabled}")
+        typer.echo(f"  Library Top-K: {config.chat_library_top_k}")
+        typer.echo(f"  Journal Enabled: {config.chat_journal_enabled}")
+        typer.echo(f"  Journal Top-K: {config.chat_journal_top_k}")
         typer.echo("")
 
         typer.echo("API Keys:")
@@ -61,7 +59,6 @@ def config() -> None:
         typer.echo("")
 
         typer.echo("Note: Override settings via .env file or environment variables")
-        typer.echo("Example: PROVIDER_TYPE=local, PROVIDER_NAME=ollama, MODEL_DEFAULT=qwen3:8b")
 
     except ImportError as e:
         typer.echo(f"Error: Could not import config module: {e}", err=True)

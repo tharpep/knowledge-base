@@ -34,7 +34,7 @@ def run_rag_demo(mode="automated"):
         
         if documents_folder.exists():
             # Check if we should clear the collection first
-            if config.rag_clear_on_ingest:
+            if config.library_clear_on_ingest:
                 print("Clearing existing documents...")
                 clear_result = rag.clear_collection()
                 if clear_result.get("success"):

@@ -36,8 +36,8 @@ class ConfigUpdateRequest(BaseModel):
     chat_library_similarity_threshold: Optional[float] = Field(None, ge=0.0, le=1.0, description="Similarity threshold")
     chat_journal_enabled: Optional[bool] = Field(None, description="Enable Journal (chat history) context")
     chat_journal_top_k: Optional[int] = Field(None, ge=1, le=50, description="Top-k entries from Journal")
-    rag_chunk_size: Optional[int] = Field(None, ge=100, le=5000, description="Chunk size for indexing")
-    rag_chunk_overlap: Optional[int] = Field(None, ge=0, le=500, description="Chunk overlap")
+    library_chunk_size: Optional[int] = Field(None, ge=100, le=5000, description="Chunk size for indexing")
+    library_chunk_overlap: Optional[int] = Field(None, ge=0, le=500, description="Chunk overlap")
     
     # Embedding
     embedding_model: Optional[str] = Field(None, description="Embedding model name")
@@ -91,19 +91,17 @@ async def get_config() -> Dict[str, Any]:
                 "chat_journal_enabled": config.chat_journal_enabled,
                 "chat_journal_top_k": config.chat_journal_top_k,
                 
-                # RAG - Indexing
-                "rag_collection_name": config.rag_collection_name,
-                "rag_chunk_size": config.rag_chunk_size,
-                "rag_chunk_overlap": config.rag_chunk_overlap,
-                "rag_use_persistent": config.rag_use_persistent,
+                # Library - Indexing
+                "library_collection_name": config.library_collection_name,
+                "library_chunk_size": config.library_chunk_size,
+                "library_chunk_overlap": config.library_chunk_overlap,
+                "library_use_persistent": config.library_use_persistent,
                 
                 # Embedding
                 "embedding_model": config.embedding_model,
                 
-                # Hardware & Model Selection
+                # Hardware
                 "hardware_mode": config.hardware_mode,
-                "model_library": config.model_library,
-                "model_journal": config.model_journal,
                 
                 # Infrastructure
                 "qdrant_host": config.qdrant_host,
@@ -245,13 +243,13 @@ async def get_config_schema() -> Dict[str, Any]:
                 "max": 50,
                 "description": "Number of entries to retrieve from Journal"
             },
-            "rag_chunk_size": {
+            "library_chunk_size": {
                 "type": "integer",
                 "min": 100,
                 "max": 5000,
                 "description": "Max characters per chunk"
             },
-            "rag_chunk_overlap": {
+            "library_chunk_overlap": {
                 "type": "integer",
                 "min": 0,
                 "max": 500,

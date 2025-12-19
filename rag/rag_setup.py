@@ -29,12 +29,12 @@ class ContextEngine:
             enable_journal: If True, initialize Journal tier for chat history retrieval
         """
         self.config = get_config()
-        self.collection_name = collection_name or self.config.rag_collection_name
+        self.collection_name = collection_name or self.config.library_collection_name
         
         # Initialize components with config values
         self.gateway = AIGateway()
         self.vector_store = VectorStore(
-            use_persistent=use_persistent if use_persistent is not None else self.config.rag_use_persistent,
+            use_persistent=use_persistent if use_persistent is not None else self.config.library_use_persistent,
             qdrant_host=self.config.qdrant_host,
             qdrant_port=self.config.qdrant_port
         )
@@ -94,7 +94,7 @@ class ContextEngine:
         """
         # Use config default if limit not specified
         if limit is None:
-            limit = self.config.rag_top_k
+            limit = self.config.chat_library_top_k
             
         # Create query embedding
         query_embedding = self.retriever.encode_query(query)
@@ -168,7 +168,7 @@ class ContextEngine:
         """
         # Use config default if context_limit not specified
         if context_limit is None:
-            context_limit = self.config.rag_top_k
+            context_limit = self.config.chat_library_top_k
             
         # Retrieve relevant documents
         retrieved_docs = self.search(question, limit=context_limit)

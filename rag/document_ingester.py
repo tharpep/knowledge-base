@@ -54,8 +54,8 @@ class DocumentIngester:
             config = get_config()
             chunks = self._chunk_text(
                 processed_content, 
-                max_chunk_size=config.rag_chunk_size,
-                overlap=config.rag_chunk_overlap
+                max_chunk_size=config.library_chunk_size,
+                overlap=config.library_chunk_overlap
             )
             
             # Index chunks

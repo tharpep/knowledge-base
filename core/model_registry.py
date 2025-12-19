@@ -165,9 +165,7 @@ def get_configured_model(task: Literal["library", "journal"]) -> ModelMetadata:
     """
     Get the model for a task, respecting config overrides.
     
-    This is the primary function for the hybrid registry pattern:
-    1. Check config for user override (model_library or model_journal)
-    2. Fall back to registry defaults if not overridden
+    Both library and journal use the same embedding_model from config.
     
     Args:
         task: 'library' for document embeddings, 'journal' for chat history
@@ -182,13 +180,8 @@ def get_configured_model(task: Literal["library", "journal"]) -> ModelMetadata:
     
     config = get_config()
     
-    # Get model name from config
-    if task == "library":
-        model_name = config.model_library
-    elif task == "journal":
-        model_name = config.model_journal
-    else:
-        raise ValueError(f"Unknown task: {task}")
+    # Both tasks use the same embedding model
+    model_name = config.embedding_model
     
     # Look up in registry
     model = get_model(model_name)

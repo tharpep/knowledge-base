@@ -210,10 +210,10 @@ class VectorStore:
         Clean up old/unused collections
         
         Args:
-            keep_collections: List of collection names to keep (default: ['simrag_docs'])
+            keep_collections: List of collection names to keep (default: ['library_docs'])
         """
         if keep_collections is None:
-            keep_collections = ['simrag_docs']
+            keep_collections = ['library_docs']
         
         try:
             all_collections = self.list_collections()
