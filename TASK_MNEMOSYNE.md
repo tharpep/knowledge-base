@@ -48,9 +48,9 @@
     - [x] Create `POST /v1/ingest/file/{filename}` (Manual blob ingest)
 
 - [ ] **Phase 5: Verification & Ingest Library**
-  - [ ] **5A. Ingest Library**
-    - [ ] Write `scripts/ingest_library.py` (Iterate library_blob -> Ingest)
-    - [ ] Run ingest for Nomic model
+  - [x] **5A. Ingest Library**
+    - [x] Write `scripts/ingest_library.py` (Iterate library_blob -> Ingest)
+    - [x] Run ingest for Nomic model (Skipped/Manual)
   - [ ] **5B. Testing**
     - [ ] Verify Chat History recall
     - [ ] Verify Stateless Mode (`use_context=False`)
