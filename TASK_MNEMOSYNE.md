@@ -40,9 +40,9 @@
     - [x] Update `app/routes/llm.py` to pass `use_context` flag
 
 - [ ] **Phase 4: API & Data Management**
-  - [ ] **4A. Memory Endpoints**
-    - [ ] Create `DELETE /v1/memory` with `?confirm=true` check
-    - [ ] Create `GET /v1/memory/sessions` listing
+  - [x] **4A. Memory Endpoints**
+    - [x] Create `DELETE /v1/memory` with `?confirm=true` check
+    - [x] Create `GET /v1/memory/sessions` listing
   - [ ] **4B. Profile & Ingest**
     - [ ] Create `GET/PATCH /v1/profile`
     - [ ] Create `POST /v1/ingest/file/{filename}` (Manual blob ingest)

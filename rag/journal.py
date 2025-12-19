@@ -283,6 +283,74 @@ Title:"""
     # Utility Methods
     # =========================================================================
     
+    def list_sessions(self, limit: int = 100) -> list[dict]:
+        """
+        List all unique session IDs in the journal.
+        
+        Args:
+            limit: Maximum number of sessions to return
+            
+        Returns:
+            List of dicts with session_id and entry_count
+        """
+        try:
+            # Scroll through all points to collect unique session_ids
+            # Note: This is acceptable for personal use with limited chat history
+            all_points, _ = self.vector_store.client.scroll(
+                collection_name=self.config.journal_collection_name,
+                limit=10000,  # Reasonable upper bound for personal use
+                with_payload=["session_id", "timestamp"]
+            )
+            
+            # Aggregate by session_id
+            sessions = {}
+            for point in all_points:
+                session_id = point.payload.get("session_id")
+                if session_id:
+                    if session_id not in sessions:
+                        sessions[session_id] = {
+                            "session_id": session_id,
+                            "entry_count": 0,
+                            "last_activity": None
+                        }
+                    sessions[session_id]["entry_count"] += 1
+                    
+                    # Track most recent timestamp
+                    timestamp = point.payload.get("timestamp")
+                    if timestamp:
+                        if sessions[session_id]["last_activity"] is None or timestamp > sessions[session_id]["last_activity"]:
+                            sessions[session_id]["last_activity"] = timestamp
+            
+            # Sort by last_activity descending, return as list
+            sorted_sessions = sorted(
+                sessions.values(),
+                key=lambda s: s["last_activity"] or "",
+                reverse=True
+            )[:limit]
+            
+            return sorted_sessions
+            
+        except Exception as e:
+            logger.error(f"Failed to list sessions: {e}")
+            return []
+    
+    async def clear_all(self) -> bool:
+        """
+        Clear all entries from the journal.
+        
+        Returns:
+            True if successful
+        """
+        try:
+            # Recreate the collection (fastest way to clear)
+            self.vector_store.client.delete_collection(self.config.journal_collection_name)
+            self._setup_collection()
+            logger.info("Cleared all journal entries")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to clear journal: {e}")
+            return False
+    
     def get_stats(self) -> dict:
         """Get journal collection statistics."""
         return self.vector_store.get_collection_stats(self.config.journal_collection_name)
