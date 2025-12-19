@@ -104,7 +104,7 @@ async def lifespan(app: FastAPI):
     try:
         from core.config import get_config
         config = get_config()
-        if config.chat_rag_enabled:
+        if config.chat_context_enabled:
             logger.info("Initializing RAG system...")
             from rag.rag_setup import ContextEngine
             rag_instance = ContextEngine()

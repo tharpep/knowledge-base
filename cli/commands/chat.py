@@ -55,7 +55,7 @@ def chat(
 
         # Initialize RAG if enabled (do this at startup to avoid delays during chat)
         rag_instance = None
-        if config.chat_rag_enabled:
+        if config.chat_context_enabled and config.chat_library_enabled:
             try:
                 typer.echo("Initializing RAG system...")
                 from rag.rag_setup import ContextEngine

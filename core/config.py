@@ -193,38 +193,45 @@ class AppConfig(BaseSettings):
         description="Maximum seconds for a worker job before timeout (30-3600)"
     )
 
-    # ===== Chat RAG Configuration =====
-    chat_rag_enabled: bool = Field(
+    # ===== Chat Context Configuration =====
+    # Master switch for all context injection
+    chat_context_enabled: bool = Field(
         default=True,
-        description="Enable RAG context retrieval in chat completions endpoint"
+        description="Master switch: Enable context injection (Library + Journal) in chat"
     )
-    chat_rag_top_k: int = Field(
+    
+    # Library (document knowledge) settings
+    chat_library_enabled: bool = Field(
+        default=True,
+        description="Enable Library (document RAG) context retrieval in chat"
+    )
+    chat_library_top_k: int = Field(
         default=30,
         ge=1,
         le=100,
-        description="Top-k documents to retrieve for chat RAG (1-100)"
+        description="Top-k documents to retrieve from Library (1-100)"
     )
-    chat_rag_similarity_threshold: float = Field(
+    chat_library_similarity_threshold: float = Field(
         default=0.15,
         ge=0.0,
         le=1.0,
-        description="Minimum similarity score for chat RAG context (0.0-1.0). Lower values allow more documents through."
+        description="Minimum similarity score for Library context (0.0-1.0)"
+    )
+    chat_library_use_cache: bool = Field(
+        default=True,
+        description="Enable caching to reuse Library results from similar queries"
     )
     
-    # ===== RAG Enhancement Configuration =====
-    chat_rag_use_context_cache: bool = Field(
-        default=True,
-        description="Enable context caching to reuse RAG results from previous messages"
+    # Journal (chat history) settings
+    chat_journal_enabled: bool = Field(
+        default=False,
+        description="Enable Journal (chat history) context retrieval in chat"
     )
-    chat_rag_use_conversation_aware: bool = Field(
-        default=True,
-        description="Use conversation history to build better RAG queries"
-    )
-    chat_rag_min_results_threshold: int = Field(
-        default=2,
-        ge=0,
-        le=10,
-        description="Minimum number of RAG results before trying fallback strategies (0-10)"
+    chat_journal_top_k: int = Field(
+        default=5,
+        ge=1,
+        le=50,
+        description="Top-k entries to retrieve from Journal (1-50)"
     )
 
     # ===== Document Source Configuration =====

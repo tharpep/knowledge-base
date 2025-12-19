@@ -62,19 +62,20 @@ class ChatService:
         self,
         user_message: str,
         conversation_history: List[Dict[str, str]],
-        use_rag: Optional[bool] = None,
+        use_library: Optional[bool] = None,
         use_journal: Optional[bool] = None,
         session_id: Optional[str] = None,
-        rag_top_k: Optional[int] = None,
+        library_top_k: Optional[int] = None,
+        journal_top_k: Optional[int] = None,
         similarity_threshold: Optional[float] = None,
         system_prompt: Optional[str] = None,
-        rag_prompt_template: Optional[str] = None
+        context_prompt_template: Optional[str] = None
     ) -> ChatMessageResult:
         """
         Prepare a chat message with optional context from Library and Journal.
         
         This method:
-        1. Retrieves Library (RAG) context if enabled
+        1. Retrieves Library (document) context if enabled
         2. Retrieves Journal (chat history) context if enabled
         3. Merges and formats context for the LLM
         4. Returns the formatted message and retrieval results
@@ -82,45 +83,63 @@ class ChatService:
         Args:
             user_message: The user's message/query
             conversation_history: List of previous messages (role/content dicts)
-            use_rag: Whether to use Library/RAG (overrides config if provided)
-            use_journal: Whether to use Journal for historical context
+            use_library: Whether to use Library (document) retrieval
+            use_journal: Whether to use Journal (chat history) retrieval
             session_id: Session ID for Journal filtering (optional)
-            rag_top_k: Number of documents to retrieve (overrides config if provided)
-            similarity_threshold: Minimum similarity score (overrides config if provided)
+            library_top_k: Number of documents to retrieve from Library
+            journal_top_k: Number of entries to retrieve from Journal
+            similarity_threshold: Minimum similarity score for Library
             system_prompt: Custom system prompt (overrides default if provided)
-            rag_prompt_template: Custom RAG prompt template (overrides default if provided)
+            context_prompt_template: Custom context prompt template (overrides default)
         
         Returns:
             ChatMessageResult with formatted message and retrieval results
         """
+        # Master switch check
+        if not self.config.chat_context_enabled:
+            # Context disabled - return un-augmented message
+            formatted = self._format_user_message(
+                user_message=user_message,
+                rag_context_text=None,
+                system_prompt=system_prompt,
+                rag_prompt_template=context_prompt_template
+            )
+            return ChatMessageResult(
+                formatted_message=formatted,
+                rag_results=[],
+                rag_context_text=None,
+                journal_results=[],
+                journal_context_text=None
+            )
+        
         # Use provided values or fall back to config
-        use_rag = use_rag if use_rag is not None else self.config.chat_rag_enabled
-        use_journal = use_journal if use_journal is not None else False  # Opt-in for now
-        rag_top_k = rag_top_k if rag_top_k is not None else self.config.chat_rag_top_k
+        use_library = use_library if use_library is not None else self.config.chat_library_enabled
+        use_journal = use_journal if use_journal is not None else self.config.chat_journal_enabled
+        library_top_k = library_top_k if library_top_k is not None else self.config.chat_library_top_k
+        journal_top_k = journal_top_k if journal_top_k is not None else self.config.chat_journal_top_k
         similarity_threshold = (
             similarity_threshold 
             if similarity_threshold is not None 
-            else self.config.chat_rag_similarity_threshold
+            else self.config.chat_library_similarity_threshold
         )
         
-        rag_results: List[Tuple[str, float]] = []
-        rag_context_text: Optional[str] = None
+        library_results: List[Tuple[str, float]] = []
+        library_context_text: Optional[str] = None
         journal_results: List[Dict] = []
         journal_context_text: Optional[str] = None
         
-        # Timing for Library (RAG) retrieval
-        rag_start_time = time.time()
+        # Timing for Library retrieval
+        library_start_time = time.time()
         
         # Retrieve Library context if enabled
-        if use_rag:
-            rag_results, rag_context_text = self._retrieve_rag_context_hybrid(
+        if use_library:
+            library_results, library_context_text = self._retrieve_library_context(
                 query=user_message,
-                conversation_history=conversation_history,
-                top_k=rag_top_k,
+                top_k=library_top_k,
                 similarity_threshold=similarity_threshold
             )
         
-        rag_time = (time.time() - rag_start_time) * 1000  # Convert to ms
+        library_time = (time.time() - library_start_time) * 1000
         
         # Timing for Journal retrieval
         journal_start_time = time.time()
@@ -130,7 +149,7 @@ class ChatService:
             journal_results, journal_context_text = self._retrieve_journal_context(
                 query=user_message,
                 session_id=session_id,
-                limit=rag_top_k
+                limit=journal_top_k
             )
         
         journal_time = (time.time() - journal_start_time) * 1000
@@ -140,7 +159,7 @@ class ChatService:
         
         # Merge context from both sources
         merged_context = self._merge_context(
-            rag_context=rag_context_text,
+            library_context=library_context_text,
             journal_context=journal_context_text
         )
         
@@ -149,159 +168,91 @@ class ChatService:
             user_message=user_message,
             rag_context_text=merged_context,
             system_prompt=system_prompt,
-            rag_prompt_template=rag_prompt_template
+            rag_prompt_template=context_prompt_template
         )
         
-        format_time = (time.time() - format_start_time) * 1000  # Convert to ms
+        format_time = (time.time() - format_start_time) * 1000
         
         # Log timing breakdown if enabled
         if self.config.log_output:
-            timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]  # HH:MM:SS.mmm
+            timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
             logger.info(f"[{timestamp}] Message Preparation:")
-            if use_rag:
-                logger.info(f"  Library Retrieval: {rag_time:.1f}ms ({len(rag_results)} docs)")
+            if use_library:
+                logger.info(f"  Library Retrieval: {library_time:.1f}ms ({len(library_results)} docs)")
             if use_journal:
                 logger.info(f"  Journal Retrieval: {journal_time:.1f}ms ({len(journal_results)} entries)")
             logger.info(f"  Prompt Formatting: {format_time:.1f}ms")
-            logger.info(f"  Total Preparation: {rag_time + journal_time + format_time:.1f}ms")
+            logger.info(f"  Total Preparation: {library_time + journal_time + format_time:.1f}ms")
         
         return ChatMessageResult(
             formatted_message=formatted_message,
-            rag_results=rag_results,
-            rag_context_text=rag_context_text,
+            rag_results=library_results,
+            rag_context_text=library_context_text,
             journal_results=journal_results,
             journal_context_text=journal_context_text
         )
     
-    def _retrieve_rag_context_hybrid(
+    def _retrieve_library_context(
         self,
         query: str,
-        conversation_history: List[Dict[str, str]],
         top_k: int,
         similarity_threshold: float
     ) -> Tuple[List[Tuple[str, float]], Optional[str]]:
         """
-        Hybrid RAG retrieval with multiple fallback strategies.
+        Retrieve context from Library (document knowledge base).
         
-        Strategy order:
+        Strategies:
         1. Check context cache (if enabled)
-        2. Direct query retrieval
-        3. Conversation-aware query (if minimal results and enabled)
-        4. Lower threshold adaptive retrieval (if minimal results)
+        2. Direct vector search
         
         Args:
             query: User query/message
-            conversation_history: List of previous messages (role/content dicts)
             top_k: Number of documents to retrieve
             similarity_threshold: Minimum similarity score
         
         Returns:
-            Tuple of (rag_results, rag_context_text)
+            Tuple of (library_results, library_context_text)
         """
-        retrieval_start = time.time()
-        strategy_used = None
-        
         # Strategy 1: Check context cache
-        cache_check_start = time.time()
-        if self.config.chat_rag_use_context_cache:
+        if self.config.chat_library_use_cache:
             cached_results = self._get_cached_context(query)
-            cache_check_time = (time.time() - cache_check_start) * 1000
             if cached_results:
                 if self.config.log_output:
                     timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
-                    logger.info(f"[{timestamp}] RAG Strategy: Cache Hit ({cache_check_time:.1f}ms)")
-                rag_context_text = self._format_context_text(cached_results)
-                return cached_results, rag_context_text
+                    logger.info(f"[{timestamp}] Library: Cache Hit")
+                context_text = self._format_context_text(cached_results)
+                return cached_results, context_text
         
         # Strategy 2: Direct query retrieval
-        direct_start = time.time()
-        rag_results = self._retrieve_rag_context_direct(
+        results = self._retrieve_library_direct(
             query=query,
             top_k=top_k,
             similarity_threshold=similarity_threshold
         )
-        direct_time = (time.time() - direct_start) * 1000
-        strategy_used = "direct"
-        
-        min_results = self.config.chat_rag_min_results_threshold
-        
-        # Strategy 3: Conversation-aware query if minimal results
-        if len(rag_results) < min_results and self.config.chat_rag_use_conversation_aware:
-            conv_start = time.time()
-            if self.config.log_output:
-                timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
-                logger.info(f"[{timestamp}] RAG Strategy: Direct ({direct_time:.1f}ms) → Minimal results ({len(rag_results)}), trying conversation-aware")
-            
-            conversation_query = self._build_conversation_aware_query(
-                query=query,
-                conversation_history=conversation_history
-            )
-            
-            conversation_results = self._retrieve_rag_context_direct(
-                query=conversation_query,
-                top_k=top_k,
-                similarity_threshold=similarity_threshold * 0.8  # Slightly lower threshold
-            )
-            conv_time = (time.time() - conv_start) * 1000
-            
-            # Use conversation results if better
-            if len(conversation_results) > len(rag_results):
-                rag_results = conversation_results
-                strategy_used = "conversation-aware"
-                if self.config.log_output:
-                    timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
-                    logger.info(f"[{timestamp}] RAG Strategy: Conversation-aware ({conv_time:.1f}ms) → Found {len(rag_results)} results")
-        
-        # Strategy 4: Lower threshold if still minimal results
-        if len(rag_results) < min_results:
-            lower_start = time.time()
-            if self.config.log_output:
-                timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
-                logger.info(f"[{timestamp}] RAG Strategy: Still minimal ({len(rag_results)}), trying lower threshold")
-            
-            lower_threshold_results = self._retrieve_rag_context_direct(
-                query=query,
-                top_k=top_k,
-                similarity_threshold=similarity_threshold * 0.5  # Much lower threshold
-            )
-            lower_time = (time.time() - lower_start) * 1000
-            
-            # Use lower threshold results if better
-            if len(lower_threshold_results) > len(rag_results):
-                rag_results = lower_threshold_results
-                strategy_used = "lower-threshold"
-                if self.config.log_output:
-                    timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
-                    logger.info(f"[{timestamp}] RAG Strategy: Lower threshold ({lower_time:.1f}ms) → Found {len(rag_results)} results")
-        
-        total_retrieval_time = (time.time() - retrieval_start) * 1000
-        if self.config.log_output and strategy_used:
-            timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
-            logger.info(f"[{timestamp}] RAG Retrieval Complete: {strategy_used} strategy, {total_retrieval_time:.1f}ms total")
         
         # Cache results for future use
-        if self.config.chat_rag_use_context_cache:
-            self._cache_context(query, rag_results)
+        if self.config.chat_library_use_cache and results:
+            self._cache_context(query, results)
         
         # Format context text
-        rag_context_text = self._format_context_text(rag_results) if rag_results else None
+        context_text = self._format_context_text(results) if results else None
         
         if self.config.log_output:
-            if rag_results:
-                logger.info(f"Chat RAG - Using {len(rag_results)} documents as context")
+            if results:
+                logger.info(f"Library: Retrieved {len(results)} documents")
             else:
-                logger.info("Chat RAG - No documents retrieved after all strategies")
+                logger.info("Library: No documents found")
         
-        return rag_results, rag_context_text
+        return results, context_text
     
-    def _retrieve_rag_context_direct(
+    def _retrieve_library_direct(
         self,
         query: str,
         top_k: int,
         similarity_threshold: float
     ) -> List[Tuple[str, float]]:
         """
-        Direct RAG context retrieval (single strategy).
+        Direct Library retrieval via vector search.
         
         Args:
             query: User query/message
@@ -312,22 +263,22 @@ class ChatService:
             List of (document_text, similarity_score) tuples
         """
         try:
-            # Use pre-initialized context engine if available, otherwise create new one
+            # Use pre-initialized context engine if available
             if self._context_engine is not None:
-                rag = self._context_engine
+                engine = self._context_engine
             else:
                 from rag.rag_setup import ContextEngine
                 self._context_engine = ContextEngine()
-                rag = self._context_engine
+                engine = self._context_engine
             
-            # Retrieve RAG context
-            rag_results = rag.get_context_for_chat(
+            # Retrieve Library context
+            results = engine.get_context_for_chat(
                 query=query,
                 top_k=top_k,
                 similarity_threshold=similarity_threshold
             )
             
-            return rag_results
+            return results
             
         except Exception as e:
             # Log error but continue without RAG
@@ -336,47 +287,6 @@ class ChatService:
                 exc_info=self.config.log_output
             )
             return []
-    
-    def _build_conversation_aware_query(
-        self,
-        query: str,
-        conversation_history: List[Dict[str, str]],
-        max_history_turns: int = 3
-    ) -> str:
-        """
-        Build a query that includes relevant conversation context.
-        
-        Args:
-            query: Current user query
-            conversation_history: List of previous messages
-            max_history_turns: Maximum number of conversation turns to include
-        
-        Returns:
-            Enhanced query string with conversation context
-        """
-        if not conversation_history:
-            return query
-        
-        # Get recent conversation turns (last N user-assistant pairs)
-        recent_turns = conversation_history[-max_history_turns * 2:]
-        
-        # Extract key information from recent conversation
-        conversation_context = []
-        for msg in recent_turns:
-            role = msg.get("role", "")
-            content = msg.get("content", "")
-            # Skip system messages and very long messages
-            if role in ["user", "assistant"] and len(content) < 500:
-                conversation_context.append(f"{role}: {content[:200]}")
-        
-        if not conversation_context:
-            return query
-        
-        # Build enhanced query
-        context_summary = "\n".join(conversation_context[-4:])  # Last 4 messages max
-        enhanced_query = f"{query}\n\nContext from recent conversation:\n{context_summary}"
-        
-        return enhanced_query
     
     def _get_cached_context(self, query: str) -> Optional[List[Tuple[str, float]]]:
         """
@@ -565,14 +475,14 @@ class ChatService:
     
     def _merge_context(
         self,
-        rag_context: Optional[str],
+        library_context: Optional[str],
         journal_context: Optional[str]
     ) -> Optional[str]:
         """
         Merge Library and Journal context into a single context string.
         
         Args:
-            rag_context: Context from Library (document) retrieval
+            library_context: Context from Library (document) retrieval
             journal_context: Context from Journal (chat history) retrieval
             
         Returns:
@@ -580,8 +490,8 @@ class ChatService:
         """
         parts = []
         
-        if rag_context:
-            parts.append("=== Relevant Knowledge ===\n" + rag_context)
+        if library_context:
+            parts.append("=== Relevant Knowledge ===\n" + library_context)
         
         if journal_context:
             parts.append("=== Relevant Conversation History ===\n" + journal_context)

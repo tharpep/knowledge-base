@@ -29,11 +29,13 @@ class ConfigUpdateRequest(BaseModel):
     model_ollama: Optional[str] = Field(None, description="Default Ollama model")
     model_purdue: Optional[str] = Field(None, description="Default Purdue model")
     model_anthropic: Optional[str] = Field(None, description="Default Anthropic model")
-    
-    # RAG settings
-    chat_rag_enabled: Optional[bool] = Field(None, description="Enable RAG in chat")
-    chat_rag_top_k: Optional[int] = Field(None, ge=1, le=100, description="Top-k docs for RAG")
-    chat_rag_similarity_threshold: Optional[float] = Field(None, ge=0.0, le=1.0, description="Similarity threshold")
+    # Context settings (Library + Journal)
+    chat_context_enabled: Optional[bool] = Field(None, description="Master switch for context injection")
+    chat_library_enabled: Optional[bool] = Field(None, description="Enable Library (document) context")
+    chat_library_top_k: Optional[int] = Field(None, ge=1, le=100, description="Top-k docs from Library")
+    chat_library_similarity_threshold: Optional[float] = Field(None, ge=0.0, le=1.0, description="Similarity threshold")
+    chat_journal_enabled: Optional[bool] = Field(None, description="Enable Journal (chat history) context")
+    chat_journal_top_k: Optional[int] = Field(None, ge=1, le=50, description="Top-k entries from Journal")
     rag_chunk_size: Optional[int] = Field(None, ge=100, le=5000, description="Chunk size for indexing")
     rag_chunk_overlap: Optional[int] = Field(None, ge=0, le=500, description="Chunk overlap")
     
@@ -80,12 +82,14 @@ async def get_config() -> Dict[str, Any]:
                 "model_purdue": config.model_purdue,
                 "model_anthropic": config.model_anthropic,
                 
-                # RAG - Chat
-                "chat_rag_enabled": config.chat_rag_enabled,
-                "chat_rag_top_k": config.chat_rag_top_k,
-                "chat_rag_similarity_threshold": config.chat_rag_similarity_threshold,
-                "chat_rag_use_context_cache": config.chat_rag_use_context_cache,
-                "chat_rag_use_conversation_aware": config.chat_rag_use_conversation_aware,
+                # Context - Library + Journal
+                "chat_context_enabled": config.chat_context_enabled,
+                "chat_library_enabled": config.chat_library_enabled,
+                "chat_library_top_k": config.chat_library_top_k,
+                "chat_library_similarity_threshold": config.chat_library_similarity_threshold,
+                "chat_library_use_cache": config.chat_library_use_cache,
+                "chat_journal_enabled": config.chat_journal_enabled,
+                "chat_journal_top_k": config.chat_journal_top_k,
                 
                 # RAG - Indexing
                 "rag_collection_name": config.rag_collection_name,
@@ -211,21 +215,35 @@ async def get_config_schema() -> Dict[str, Any]:
                 "options": ["ollama", "purdue", "anthropic"],
                 "description": "AI provider to use"
             },
-            "chat_rag_enabled": {
+            "chat_context_enabled": {
                 "type": "boolean",
-                "description": "Enable RAG context in chat"
+                "description": "Master switch: Enable context injection"
             },
-            "chat_rag_top_k": {
+            "chat_library_enabled": {
+                "type": "boolean",
+                "description": "Enable Library (document) context"
+            },
+            "chat_library_top_k": {
                 "type": "integer",
                 "min": 1,
                 "max": 100,
-                "description": "Number of documents to retrieve"
+                "description": "Number of documents to retrieve from Library"
             },
-            "chat_rag_similarity_threshold": {
+            "chat_library_similarity_threshold": {
                 "type": "float",
                 "min": 0.0,
                 "max": 1.0,
-                "description": "Minimum similarity score"
+                "description": "Minimum similarity score for Library"
+            },
+            "chat_journal_enabled": {
+                "type": "boolean",
+                "description": "Enable Journal (chat history) context"
+            },
+            "chat_journal_top_k": {
+                "type": "integer",
+                "min": 1,
+                "max": 50,
+                "description": "Number of entries to retrieve from Journal"
             },
             "rag_chunk_size": {
                 "type": "integer",
