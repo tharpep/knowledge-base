@@ -22,8 +22,8 @@ logger = logging.getLogger(__name__)
 class ChatMessageResult:
     """Result of preparing a chat message with context."""
     formatted_message: str
-    rag_results: List[Tuple[str, float]]  # Library (document) results
-    rag_context_text: Optional[str] = None
+    library_results: List[Tuple[str, float]]  # Library (document) results
+    library_context_text: Optional[str] = None
     journal_results: List[Dict] = None  # Journal (chat history) results
     journal_context_text: Optional[str] = None
     
@@ -100,14 +100,14 @@ class ChatService:
             # Context disabled - return un-augmented message
             formatted = self._format_user_message(
                 user_message=user_message,
-                rag_context_text=None,
+                library_context_text=None,
                 system_prompt=system_prompt,
                 rag_prompt_template=context_prompt_template
             )
             return ChatMessageResult(
                 formatted_message=formatted,
-                rag_results=[],
-                rag_context_text=None,
+                library_results=[],
+                library_context_text=None,
                 journal_results=[],
                 journal_context_text=None
             )
@@ -166,7 +166,7 @@ class ChatService:
         # Format the user message with merged context if available
         formatted_message = self._format_user_message(
             user_message=user_message,
-            rag_context_text=merged_context,
+            library_context_text=merged_context,
             system_prompt=system_prompt,
             rag_prompt_template=context_prompt_template
         )
@@ -186,8 +186,8 @@ class ChatService:
         
         return ChatMessageResult(
             formatted_message=formatted_message,
-            rag_results=library_results,
-            rag_context_text=library_context_text,
+            library_results=library_results,
+            library_context_text=library_context_text,
             journal_results=journal_results,
             journal_context_text=journal_context_text
         )
@@ -350,39 +350,39 @@ class ChatService:
         # Move to end (most recently used)
         self._class_cache.move_to_end(normalized_query)
     
-    def _format_context_text(self, rag_results: List[Tuple[str, float]]) -> str:
+    def _format_context_text(self, results: List[Tuple[str, float]]) -> str:
         """
-        Format RAG results into context text.
+        Format retrieval results into context text.
         
         Args:
-            rag_results: List of (document_text, similarity_score) tuples
+            results: List of (document_text, similarity_score) tuples
         
         Returns:
             Formatted context text string
         """
-        return "\n\n".join([doc for doc, _ in rag_results])
+        return "\n\n".join([doc for doc, _ in results])
     
     def _format_user_message(
         self,
         user_message: str,
-        rag_context_text: Optional[str],
+        library_context_text: Optional[str],
         system_prompt: Optional[str] = None,
         rag_prompt_template: Optional[str] = None
     ) -> str:
         """
-        Format user message with optional RAG context.
+        Format user message with optional context.
         
         Args:
             user_message: The user's message
-            rag_context_text: RAG context text (if available)
+            library_context_text: Context text (if available)
             system_prompt: Custom system prompt (overrides default)
-            rag_prompt_template: Custom RAG prompt template (overrides default)
+            rag_prompt_template: Custom context prompt template (overrides default)
         
         Returns:
             Formatted message string ready for LLM
         """
-        if rag_context_text:
-            # Format with RAG context clearly separated
+        if library_context_text:
+            # Format with context clearly separated
             if rag_prompt_template:
                 template = rag_prompt_template
             else:
@@ -390,7 +390,7 @@ class ChatService:
             
             return format_prompt(
                 template,
-                rag_context=rag_context_text,
+                rag_context=library_context_text,
                 user_message=user_message
             )
         else:

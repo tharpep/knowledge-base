@@ -81,7 +81,7 @@ def chat(
         
         # Create ChatService once and reuse (for cache persistence)
         from core.services import ChatService
-        chat_service = ChatService(config, rag_instance=rag_instance)
+        chat_service = ChatService(config, context_engine=rag_instance)
 
         # Interactive chat loop
         while True:
@@ -113,23 +113,25 @@ def chat(
                     if config.log_output:
                         typer.echo(f"[{timestamp}] Starting chat request...", err=True)
                     
-                    # Use ChatService to prepare message with RAG context
+                    # Use ChatService to prepare message with context
                     prep_start = time.time()
                     message_result = chat_service.prepare_chat_message(
                         user_message=user_input,
                         conversation_history=conversation_history,
-                        use_rag=None,  # Use config default
-                        rag_top_k=None,  # Use config default
+                        use_library=None,  # Use config default
+                        use_journal=None,  # Use config default
+                        library_top_k=None,  # Use config default
+                        journal_top_k=None,  # Use config default
                         similarity_threshold=None,  # Use config default
                         system_prompt=None,  # Use default
-                        rag_prompt_template=None  # Use default
+                        context_prompt_template=None  # Use default
                     )
                     prep_time = (time.time() - prep_start) * 1000
                     
                     # Log RAG results if logging enabled
                     if config.log_output:
-                        if message_result.rag_results:
-                            typer.echo(f"[RAG: Retrieved {len(message_result.rag_results)} docs]", err=True)
+                        if message_result.library_results:
+                            typer.echo(f"[Library: Retrieved {len(message_result.library_results)} docs]", err=True)
                         else:
                             typer.echo(f"[RAG: No docs found]", err=True)
                         typer.echo(f"[Message Prep: {prep_time:.1f}ms]", err=True)

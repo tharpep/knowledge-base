@@ -171,7 +171,7 @@ async def chat_completions(request: ChatCompletionRequest) -> Dict[str, Any]:
         # Update the last message in messages array with formatted message
         # This preserves conversation history while adding RAG context to current message
         messages[-1]["content"] = message_result.formatted_message
-        rag_results = message_result.rag_results
+        library_results = message_result.library_results
         
         # Log model/provider usage if logging enabled
         if config.log_output:
@@ -183,7 +183,7 @@ async def chat_completions(request: ChatCompletionRequest) -> Dict[str, Any]:
             provider_to_use = provider_used or "auto-select"
             logger.info(f"[{timestamp}] Chat Request:")
             logger.info(f"  Provider: {provider_to_use}, Model: {model_to_use}")
-            logger.info(f"  RAG Context: {'Yes' if rag_results else 'No'} ({len(rag_results) if rag_results else 0} docs)")
+            logger.info(f"  Library Context: {'Yes' if library_results else 'No'} ({len(library_results) if library_results else 0} docs)")
             logger.info(f"  Message Prep: {prep_time:.1f}ms")
         
         # Call gateway with messages array (which now includes RAG context in the user message)
