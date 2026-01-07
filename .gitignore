@@ -136,3 +136,6 @@ dmypy.json
 *.sublime-workspace
 *.code-workspace
 .history/
+
+data/journal_blob/
+data/library_blob/
