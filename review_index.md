@@ -374,15 +374,29 @@
 
 ## Summary Statistics
 
-- Total files reviewed: 22+
+- Total files reviewed: 35+
 - **Category 1 (Verbose Docstrings):** ✅ COMPLETED - All 17 files cleaned (15 original + 2 additional)
 - **Category 2 (Unnecessary Comments):** ✅ COMPLETED - All obvious comments removed from listed files
 - **Category 3 (AI-Generated Patterns):** ✅ COMPLETED - Separator comments removed, migration notes cleaned
 - **Category 5 (Weird Notes):** ✅ COMPLETED - Commented-out code removed, duplicate headers fixed, load_env_file replaced with python-dotenv
-- Unnecessary comments: ~100+
-- AI-generated patterns: ~15
-- Missing TODOs: 1 (router.py)
-- Weird notes: ~10
+- **Additional Findings:** ✅ COMPLETED - All 6 additional files cleaned (~55+ issues total)
+- Unnecessary comments: ~100+ (cleaned)
+- AI-generated patterns: ~15 (cleaned)
+- Missing TODOs: 1 (router.py - deferred)
+- Weird notes: ~10 (cleaned)
+
+**Additional Findings:**
+- ✅ `rag/document_parser.py` - ~10+ issues → ✅ CLEANED
+- ✅ `core/model_registry.py` - ~5+ issues → ✅ CLEANED
+- ✅ `llm/base_client.py` - ~5+ issues → ✅ CLEANED
+- ✅ `core/queue.py` - ~10+ issues → ✅ CLEANED
+- ✅ `core/utils/logging_config.py` - ~10+ issues → ✅ CLEANED
+- ✅ `agents/tools/rag_answer.py` - ~15+ issues → ✅ CLEANED
+
+**Excluded Files (per user instructions):**
+- `app/routes/*.py` files: ~80+ verbose docstrings and obvious comments (excluded)
+- `app/main.py`: ~20+ verbose docstrings and obvious comments (excluded)
+- `app/db.py`: ~15+ verbose docstrings and obvious comments (excluded)
 
 **Most common issues:**
 1. ✅ Verbose docstrings on simple getters/setters/initializers - **FIXED**
@@ -401,5 +415,190 @@
 **Additional files cleaned up:**
 - `rag/journal.py` - ✅ Cleaned (6+ verbose docstrings removed)
 - `rag/workers.py` - ✅ Cleaned (3+ verbose docstrings removed)
+- `rag/document_parser.py` - ✅ Cleaned (10+ issues)
+- `core/model_registry.py` - ✅ Cleaned (5+ issues)
+- `llm/base_client.py` - ✅ Cleaned (5+ issues)
+- `core/queue.py` - ✅ Cleaned (10+ issues)
+- `core/utils/logging_config.py` - ✅ Cleaned (10+ issues)
+- `agents/tools/rag_answer.py` - ✅ Cleaned (15+ issues)
 
-**Note:** Endpoint routes (`app/routes/*.py`), `main.py`, `db.py`, and `config.py` were excluded from Category 1 cleanup per user instructions, though some contain verbose docstrings.
+**Note:** Endpoint routes (`app/routes/*.py`), `main.py`, `db.py`, and `config.py` were excluded from Category 1 cleanup per user instructions, though they contain many verbose docstrings. These are documented in the "Additional Findings" section above.
+
+---
+
+## Additional Findings (Not Yet Cleaned - Excluded Files)
+
+### `app/routes/llm.py`
+- Line 1-19: Very verbose module docstring with detailed endpoint descriptions
+- Line 37: Separator comment `# ===== Request/Response Models =====`
+- Line 69: Separator comment `# ===== Session Management Helpers =====`
+- Line 78-94: `_handle_session_management` - verbose docstring with numbered steps and detailed Args/Returns
+- Line 128-136: `_maybe_auto_ingest_session` - verbose docstring with detailed Args
+- Line 158-168: `_maybe_auto_name_session` - verbose docstring with detailed Args
+- Line 191: Separator comment `# ===== Chat Completions Endpoint =====`
+- Line 347-349: Separator comment block `# =========================================================================`
+- Line 364: Comment `# Note: If provider_used is None, gateway auto-selected based on config/fallback`
+- Line 613: Separator comment `# ===== Embeddings Endpoint =====`
+- Line 718: Separator comment `# ===== Models Endpoint =====`
+
+### `app/routes/ingest.py`
+- Line 1: Verbose module docstring
+- Line 17-32: `ingest_documents` - verbose docstring with detailed Args/Returns structure
+- Line 111-125: `upload_document` - verbose docstring with detailed Args/Returns
+- Line 207-220: `ingest_manual_file` - verbose docstring with numbered list of capabilities
+- Line 231, 236, 251: Strategy comments `# Strategy 1:`, `# Strategy 2:`, `# Strategy 3:`
+- Line 322-330: `get_job_status` - verbose docstring with detailed Args/Returns
+- Line 378-384: `list_blobs` - verbose docstring
+- Line 424-432: `delete_blob` - verbose docstring with detailed Args/Returns
+- Line 478-483: `get_indexed_stats` - verbose docstring
+- Line 519-526: `clear_all_indexed` - verbose docstring with detailed Args/Returns
+- Line 586-591: `list_indexed_files` - verbose docstring
+- Line 623-631: `delete_indexed_file` - verbose docstring with detailed Args/Returns
+
+### `app/routes/query.py`
+- Line 1-6: Verbose module docstring
+- Line 15: Separator comment `# ===== Library Statistics Endpoint =====`
+
+### `app/routes/memory.py`
+- Line 1: Verbose module docstring
+- Line 15-16: `_generate_request_id` - verbose docstring for simple function
+- Line 23-31: `list_sessions` - verbose docstring with detailed Returns structure
+- Line 63-73: `get_session_messages` - verbose docstring with "Used by frontend..." note and detailed Args/Returns
+- Line 136-150: `ingest_session` - verbose docstring with numbered pipeline steps and detailed Args/Returns
+- Line 248-261: `delete_session` - verbose docstring with numbered deletion targets and detailed Args/Returns
+- Line 321-328: `get_memory_stats` - verbose docstring with detailed Returns structure
+- Line 383-391: `get_session_status` - verbose docstring with detailed Args/Returns
+
+### `app/routes/profile.py`
+- Line 1: Verbose module docstring
+- Line 17-22: `get_profile` - verbose docstring with Returns description
+- Line 35-43: `update_profile` - verbose docstring with detailed Args/Returns
+
+### `app/routes/config.py`
+- Line 1-7: Verbose module docstring
+- Line 20: Separator comment `# ===== Request/Response Models =====`
+- Line 55: Separator comment `# ===== Config Endpoints =====`
+- Line 59-64: `get_config` - verbose docstring with detailed Returns description
+- Line 144-152: `update_config` - verbose docstring with Note about persistence
+- Line 201-205: `get_config_schema` - verbose docstring with "Useful for..." note
+
+### `app/routes/health.py`
+- Line 11: `health_check` - verbose docstring
+- Line 21: `detailed_health_check` - verbose docstring
+
+### `app/routes/logs.py`
+- Line 1-6: Verbose module docstring
+- Line 25-30: `get_logs` - verbose docstring with detailed Returns description
+- Line 63-65: `get_log_detail` - verbose docstring
+
+### `app/main.py`
+- Line 1: Verbose module docstring
+- Line 27: `RequestLoggingMiddleware` - verbose class docstring
+- Line 84: `lifespan` - verbose docstring
+- Line 149: `create_app` - verbose docstring
+- Line 31: Comment `# Skip logging for health checks`
+- Line 34: Comment `# Get request ID from header or generate one`
+- Line 37: Comment `# Generate request ID if not provided`
+- Line 41: Comment `# Start timing`
+- Line 44: Comment `# Process request`
+- Line 59: Comment `# Calculate response time`
+- Line 62: Comment `# Log request (non-blocking)`
+- Line 76: Comment `# Add request ID to response header`
+- Line 87: Comment `# Startup`
+- Line 90: Comment `# Initialize database`
+- Line 98: Comment `# Initialize gateway`
+- Line 102: Comment `# Initialize RAG if enabled (do this at startup to avoid delays during requests)`
+- Line 118: Comment `# Initialize tool registry and register default tools`
+- Line 125: Comment `# Register RAG answer tool (default tool)`
+- Line 129: Comment `# Set initial allowlist (v0 tools: rag_answer)`
+- Line 139: Comment `# Shutdown`
+- Line 157: Comment `# Add CORS middleware`
+- Line 166: Comment `# Add request logging middleware`
+- Line 169: Comment `# Include routes`
+
+### `app/db.py`
+- Line 1-5: Verbose module docstring
+- Line 16: Comment `# Database file path`
+- Line 22: `init_database` - verbose docstring
+- Line 27: Comment `# Create requests table`
+- Line 48: Comment `# Create index on request_id for fast lookups`
+- Line 53: Comment `# Create index on timestamp for time-based queries`
+- Line 58: Comment `# Create index on endpoint for endpoint-based queries`
+- Line 73: `get_db_connection` - verbose docstring
+- Line 89-119: `log_request` - verbose docstring with detailed Args section
+- Line 141: Comment `# Request ID already exists (shouldn't happen, but handle gracefully)`
+- Line 144: Comment `# Don't fail the request if logging fails`
+- Line 148-157: `get_request_by_id` - verbose docstring with detailed Args/Returns
+- Line 175-185: `get_recent_requests` - verbose docstring with detailed Args/Returns
+
+### `rag/document_parser.py` ✅ CLEANED
+- Line 1-4: Verbose module docstring → ✅ Cleaned
+- Line 16: `ParsedDocument` - verbose class docstring → ✅ Cleaned
+- Line 24-28: `DocumentParser` - verbose class docstring → ✅ Cleaned
+- Line 33: `supports` - verbose docstring → ✅ Cleaned
+- Line 36-45: `parse` - verbose docstring with detailed Args/Returns → ✅ Cleaned
+- Line 62: `_parse_text` - verbose docstring → ✅ Cleaned (removed)
+- Line 74: `_parse_pdf` - verbose docstring → ✅ Cleaned (removed)
+- Line 91: `_parse_docx` - verbose docstring → ✅ Cleaned (removed)
+- Line 103: Comment `# Singleton instance` → ✅ Cleaned
+- Line 108: `get_document_parser` - verbose docstring → ✅ Cleaned
+
+### `core/model_registry.py` ✅ CLEANED
+- Line 1-4: Verbose module docstring → ✅ Cleaned
+- Line 18-28: `ModelMetadata` - verbose class docstring with detailed Attributes section → ✅ Cleaned
+- Line 37-39: Separator comments `# =============================================================================` → ✅ Cleaned
+- Line 92-94: Separator comments `# =============================================================================` → ✅ Cleaned
+- Line 97-100: `get_models_by_tag` - verbose docstring with detailed Args/Returns → ✅ Cleaned
+
+### `llm/base_client.py` ✅ CLEANED
+- Line 1-4: Verbose module docstring → ✅ Cleaned
+- Line 14-26: `chat` - verbose docstring with detailed Args/Returns → ✅ Cleaned
+- Line 29-36: `get_available_models` - verbose docstring with detailed Returns → ✅ Cleaned
+- Line 38-45: `health_check` - verbose docstring with detailed Returns → ✅ Cleaned
+- Line 46: Comment `# Default implementation - can be overridden` → ✅ Cleaned
+
+### `core/queue.py` ✅ CLEANED
+- Line 1-4: Verbose module docstring → ✅ Cleaned
+- Line 19: `JobStatus` - verbose class docstring → ✅ Cleaned
+- Line 28-32: `RedisQueue` - verbose class docstring → ✅ Cleaned
+- Line 35-40: `__init__` - verbose docstring with detailed Args → ✅ Cleaned
+- Line 45: `get_pool` - verbose docstring → ✅ Cleaned
+- Line 50-61: `enqueue` - verbose docstring with detailed Args/Returns → ✅ Cleaned
+- Line 67-76: `get_job_status` - verbose docstring with detailed Args/Returns → ✅ Cleaned
+- Line 87: Comment `# Map arq JobStatus enum to our status strings` → ✅ Cleaned
+- Line 97: Comment `# Safely get attributes from JobDef (different versions may have different attrs)` → ✅ Cleaned
+- Line 101: Comment `# Check if job failed (result is exception)` → ✅ Cleaned
+- Line 125: Comment `# Singleton instance` → ✅ Cleaned
+- Line 130: `get_redis_queue` - verbose docstring with parenthetical note → ✅ Cleaned
+
+### `core/utils/logging_config.py` ✅ CLEANED
+- Line 1-4: Verbose module docstring → ✅ Cleaned
+- Line 20-28: `setup_logging` - verbose docstring with detailed Args section → ✅ Cleaned
+- Line 60: Comment `# RAG demo log (with simple rotation)` → ✅ Cleaned
+- Line 75: Comment `# Tuning demo log (with simple rotation)` → ✅ Cleaned
+- Line 91-101: `get_logger` - verbose docstring with detailed Args/Returns → ✅ Cleaned
+- Line 105: `get_rag_logger` - verbose docstring → ✅ Cleaned
+- Line 109: `get_tuning_logger` - verbose docstring → ✅ Cleaned
+- Line 124-138: `log_rag_result` - verbose docstring with detailed Args section → ✅ Cleaned
+- Line 141: Comment `# Simple log format with wrapped answers` → ✅ Cleaned
+- Line 147: Comment `# Log retrieved context details (show what was found, not full content)` → ✅ Cleaned
+- Line 151: Comment `# Show first 100 chars to see what type of content was retrieved` → ✅ Cleaned
+- Line 161-187: `log_tuning_result` - verbose docstring with detailed Args section → ✅ Cleaned
+- Line 190: Comment `# Simple log format` → ✅ Cleaned
+- Line 197: Comment `# Initialize logging when module is imported` → ✅ Cleaned
+
+### `agents/tools/rag_answer.py` ✅ CLEANED
+- Line 1-5: Verbose module docstring → ✅ Cleaned
+- Line 16-20: `RAGAnswerTool` - verbose class docstring → ✅ Cleaned
+- Line 23: `__init__` - verbose docstring → ✅ Cleaned
+- Line 27: `_get_rag` - verbose docstring → ✅ Cleaned (removed)
+- Line 35: `name` - verbose docstring → ✅ Cleaned
+- Line 39: `description` - verbose docstring → ✅ Cleaned
+- Line 44: `read_only` - verbose docstring → ✅ Cleaned
+- Line 49: `idempotent` - verbose docstring → ✅ Cleaned
+- Line 54: `get_schema` - verbose docstring → ✅ Cleaned
+- Line 111-127: `execute` - verbose docstring with detailed Args/Returns → ✅ Cleaned
+- Line 131: Comment `# Validate query` → ✅ Cleaned
+- Line 138: Comment `# Get RAG system` → ✅ Cleaned
+- Line 141: Comment `# Execute RAG query` → ✅ Cleaned
+- Line 147: Comment `# Build answer snippets` → ✅ Cleaned

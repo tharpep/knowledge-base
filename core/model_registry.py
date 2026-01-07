@@ -1,7 +1,4 @@
-"""
-Model Registry for Project Mnemosyne
-Unified registry for managing embedding and LLM models with capability tags.
-"""
+"""Model registry for embedding and LLM models."""
 
 from pydantic import BaseModel, Field
 from typing import Literal, Optional
@@ -15,17 +12,7 @@ class ModelType(str, Enum):
 
 
 class ModelMetadata(BaseModel):
-    """
-    Metadata schema for a registered model.
-    
-    Attributes:
-        name: Model identifier (e.g., 'nomic-embed-text-v1.5')
-        type: Model type - 'embedding' or 'llm'
-        tags: Capability tags for model selection (e.g., ['library', 'gpu-preferred'])
-        dimension: Embedding dimension (required for embedding models)
-        provider: Model provider (e.g., 'ollama', 'sentence-transformers')
-        description: Human-readable description
-    """
+    """Metadata schema for a registered model."""
     name: str
     type: ModelType
     tags: list[str] = Field(default_factory=list)
@@ -33,10 +20,6 @@ class ModelMetadata(BaseModel):
     provider: Optional[str] = None
     description: Optional[str] = None
 
-
-# =============================================================================
-# Model Registry - Predefined Models
-# =============================================================================
 
 MODELS: dict[str, ModelMetadata] = {
     # Embedding Models
@@ -89,49 +72,18 @@ MODELS: dict[str, ModelMetadata] = {
 }
 
 
-# =============================================================================
-# Helper Functions
-# =============================================================================
-
 def get_models_by_tag(tag: str) -> list[ModelMetadata]:
-    """
-    Get all models that have a specific tag.
-    
-    Args:
-        tag: Tag to filter by (e.g., 'library', 'journal', 'fast')
-    
-    Returns:
-        List of ModelMetadata objects matching the tag
-    """
+    """Get all models that have a specific tag."""
     return [model for model in MODELS.values() if tag in model.tags]
 
 
 def get_models_by_type(model_type: ModelType) -> list[ModelMetadata]:
-    """
-    Get all models of a specific type.
-    
-    Args:
-        model_type: ModelType.EMBEDDING or ModelType.LLM
-    
-    Returns:
-        List of ModelMetadata objects of the specified type
-    """
+    """Get all models of a specific type."""
     return [model for model in MODELS.values() if model.type == model_type]
 
 
 def get_model_for_task(task: Literal["library", "journal"]) -> ModelMetadata:
-    """
-    Get the default model for a specific task.
-    
-    Args:
-        task: 'library' for document embeddings, 'journal' for chat history
-    
-    Returns:
-        ModelMetadata for the task's default model
-    
-    Raises:
-        ValueError: If no model is found for the task
-    """
+    """Get the default model for a specific task."""
     models = get_models_by_tag(task)
     if not models:
         raise ValueError(f"No model found for task: {task}")
@@ -139,54 +91,24 @@ def get_model_for_task(task: Literal["library", "journal"]) -> ModelMetadata:
 
 
 def get_model(name: str) -> Optional[ModelMetadata]:
-    """
-    Get a model by its registry key.
-    
-    Args:
-        name: Model registry key (e.g., 'nomic-embed-text-v1.5')
-    
-    Returns:
-        ModelMetadata if found, None otherwise
-    """
+    """Get a model by its registry key."""
     return MODELS.get(name)
 
 
 def list_models() -> list[str]:
-    """
-    List all registered model names.
-    
-    Returns:
-        List of model registry keys
-    """
+    """List all registered model names."""
     return list(MODELS.keys())
 
 
 def get_configured_model(task: Literal["library", "journal"]) -> ModelMetadata:
-    """
-    Get the model for a task, respecting config overrides.
-    
-    Both library and journal use the same embedding_model from config.
-    
-    Args:
-        task: 'library' for document embeddings, 'journal' for chat history
-    
-    Returns:
-        ModelMetadata for the configured model
-    
-    Raises:
-        ValueError: If the configured model is not in the registry
-    """
+    """Get the model for a task, respecting config overrides."""
     from core.config import get_config
     
     config = get_config()
-    
-    # Both tasks use the same embedding model
     model_name = config.embedding_model
     
-    # Look up in registry
     model = get_model(model_name)
     if model is None:
-        # Try matching by the model's actual name (e.g., "BAAI/bge-small-en-v1.5")
         for m in MODELS.values():
             if m.name == model_name:
                 return m

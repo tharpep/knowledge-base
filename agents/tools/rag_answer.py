@@ -1,8 +1,4 @@
-"""
-RAG Answer Tool
-
-Retrieves and cites answers from the ingested document corpus (RAG knowledge base).
-"""
+"""RAG answer tool for retrieving and citing answers from document corpus."""
 
 import time
 from typing import Any, Dict, Optional
@@ -13,18 +9,13 @@ logger = logging.getLogger(__name__)
 
 
 class RAGAnswerTool(BaseTool):
-    """
-    Tool for answering questions using RAG (Retrieval Augmented Generation).
-    
-    Searches the ingested document corpus and returns answers with citations.
-    """
+    """Tool for answering questions using RAG."""
     
     def __init__(self):
         """Initialize RAG Answer tool."""
-        self._rag = None  # Lazy initialization
+        self._rag = None
     
     def _get_rag(self):
-        """Lazy load RAG system."""
         if self._rag is None:
             from rag.rag_setup import get_rag
             self._rag = get_rag()
@@ -114,37 +105,23 @@ class RAGAnswerTool(BaseTool):
         top_k: int = 5,
         filters: Optional[Dict[str, Any]] = None
     ) -> ToolResult:
-        """
-        Execute RAG query.
-        
-        Args:
-            query: Question to answer
-            top_k: Number of documents to retrieve
-            filters: Optional filters for document search
-            
-        Returns:
-            ToolResult with answer and citations
-        """
+        """Execute RAG query."""
         start_time = time.time()
         
         try:
-            # Validate query
             if not query or not query.strip():
                 return ToolResult(
                     success=False,
                     error="Query cannot be empty"
                 )
             
-            # Get RAG system
             rag = self._get_rag()
             
-            # Execute RAG query
             answer, context_docs, context_scores = rag.query(
                 question=query,
                 context_limit=top_k
             )
             
-            # Build answer snippets
             answer_snippets = []
             citations = []
             
@@ -152,7 +129,7 @@ class RAGAnswerTool(BaseTool):
                 snippet = {
                     "chunk_id": f"chunk_{i}",
                     "doc_uri": f"doc_{i}",
-                    "text": doc[:200] if len(doc) > 200 else doc,  # Truncate long docs
+                    "text": doc[:200] if len(doc) > 200 else doc,
                     "score": float(score) if isinstance(score, (int, float)) else 0.0
                 }
                 answer_snippets.append(snippet)

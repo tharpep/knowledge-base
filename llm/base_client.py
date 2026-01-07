@@ -1,7 +1,4 @@
-"""
-Base class for LLM clients.
-All providers must implement this interface.
-"""
+"""Base class for LLM clients."""
 
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Optional
@@ -12,38 +9,17 @@ class BaseLLMClient(ABC):
     
     @abstractmethod
     def chat(self, messages: Any, model: Optional[str] = None, **kwargs) -> str:
-        """
-        Send chat messages and get response.
-        
-        Args:
-            messages: Chat messages (format can vary by provider)
-            model: Model name (optional, uses default if not specified)
-            **kwargs: Provider-specific parameters
-            
-        Returns:
-            str: AI response text
-        """
+        """Send chat messages and get response."""
         pass
     
     @abstractmethod
     def get_available_models(self) -> List[str]:
-        """
-        Get list of available models for this provider.
-        
-        Returns:
-            List of model names
-        """
+        """Get list of available models for this provider."""
         pass
     
     def health_check(self) -> bool:
-        """
-        Check if provider is available/healthy.
-        
-        Returns:
-            True if healthy, False otherwise
-        """
+        """Check if provider is available/healthy."""
         try:
-            # Default implementation - can be overridden
             return True
         except:
             return False
