@@ -11,14 +11,25 @@ All endpoints include:
 - Proper error handling with HTTP status codes
 - Structured error responses
 - Token usage estimation
+
+Session Management:
+- Messages are saved to SQLite when session_id is provided
+- Session switch triggers auto-ingest of previous session
+- Session names are auto-generated from first user message
 """
 
+import logging
 import uuid
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
+
+# Module-level session tracking for auto-ingest on session switch
+_last_session_id: Optional[str] = None
 
 
 # ===== Request/Response Models =====
@@ -41,7 +52,8 @@ class ChatCompletionRequest(BaseModel):
     use_journal: Optional[bool] = Field(None, description="Enable Journal (chat history) context retrieval")
     library_top_k: Optional[int] = Field(None, ge=1, le=100, description="Top-k documents to retrieve from Library")
     journal_top_k: Optional[int] = Field(None, ge=1, le=50, description="Top-k entries to retrieve from Journal")
-    session_id: Optional[str] = Field(None, description="Session ID for Journal context filtering")
+    session_id: Optional[str] = Field(None, description="Session ID for chat history tracking and Journal context")
+    save_messages: Optional[bool] = Field(True, description="Save messages to session history (requires session_id)")
     system_prompt: Optional[str] = Field(None, description="Custom system prompt (overrides default)")
     context_prompt_template: Optional[str] = Field(None, description="Custom context prompt template (overrides default)")
 
@@ -50,6 +62,131 @@ class EmbeddingRequest(BaseModel):
     """OpenAI-compatible embedding request."""
     input: str = Field(..., description="Text to embed")
     model: Optional[str] = Field(None, description="Model to use for embeddings")
+
+
+# ===== Session Management Helpers =====
+
+
+def _handle_session_management(
+    session_id: str,
+    user_message: str,
+    assistant_response: str,
+    config: Any
+) -> bool:
+    """
+    Handle session management after a successful chat completion.
+
+    1. Check for session switch and auto-ingest previous session if needed
+    2. Save user message to SQLite
+    3. Save assistant response to SQLite
+    4. Auto-set session name if this is the first assistant response
+
+    Args:
+        session_id: Current session ID
+        user_message: The user's message content
+        assistant_response: The assistant's response content
+        config: App configuration
+
+    Returns:
+        True if messages were saved successfully
+    """
+    global _last_session_id
+
+    from core.session_store import get_session_store
+
+    session_store = get_session_store()
+
+    # Step 1: Check for session switch and auto-ingest previous session
+    if _last_session_id is not None and _last_session_id != session_id:
+        _maybe_auto_ingest_session(_last_session_id)
+
+    # Step 2: Ensure session exists (upsert)
+    session_store.upsert_session(session_id)
+
+    # Step 3: Save user message
+    session_store.add_message(session_id, "user", user_message)
+    session_store.increment_message_count(session_id)
+
+    # Step 4: Save assistant response
+    session_store.add_message(session_id, "assistant", assistant_response)
+    session_store.increment_message_count(session_id)
+
+    # Step 5: Update last_activity
+    session_store.upsert_session(session_id)
+
+    # Step 6: Auto-set session name if not set (after first assistant response)
+    _maybe_auto_name_session(session_id, session_store, config)
+
+    # Step 7: Update tracking
+    _last_session_id = session_id
+
+    if config.log_output:
+        logger.debug(f"Saved messages to session: {session_id}")
+
+    return True
+
+
+def _maybe_auto_ingest_session(session_id: str) -> None:
+    """
+    Auto-ingest a session if it has new messages since last ingest.
+
+    Called when switching away from a session.
+
+    Args:
+        session_id: Session ID to potentially ingest
+    """
+    from core.session_store import get_session_store
+    from rag.journal import JournalManager
+
+    try:
+        session_store = get_session_store()
+
+        # Check if session needs ingestion
+        if session_store.has_new_messages_since_ingest(session_id):
+            logger.info(f"Auto-ingesting session on switch: {session_id}")
+            journal_manager = JournalManager()
+            result = journal_manager.ingest_session(session_id)
+
+            if "error" in result:
+                logger.warning(f"Auto-ingest failed for {session_id}: {result['error']}")
+            else:
+                logger.info(f"Auto-ingested session {session_id}: {result.get('chunks_created', 0)} chunks")
+
+    except Exception as e:
+        logger.error(f"Auto-ingest error for session {session_id}: {e}")
+
+
+def _maybe_auto_name_session(session_id: str, session_store: Any, config: Any) -> None:
+    """
+    Auto-set session name from first user message if not already set.
+
+    Called after first assistant response.
+
+    Args:
+        session_id: Session ID
+        session_store: SessionStore instance
+        config: App configuration
+    """
+    try:
+        session = session_store.get_session(session_id)
+
+        # Only auto-name if name is not set and we have messages
+        if session and session.get("name") is None and session.get("message_count", 0) >= 2:
+            first_message = session_store.get_first_user_message(session_id)
+
+            if first_message:
+                # Truncate to configured max length
+                max_length = config.journal_title_max_length
+                if len(first_message) > max_length:
+                    truncated = first_message[:max_length].rstrip() + "..."
+                else:
+                    truncated = first_message
+
+                session_store.set_session_name(session_id, truncated)
+                logger.debug(f"Auto-named session {session_id}: {truncated}")
+
+    except Exception as e:
+        logger.error(f"Auto-name error for session {session_id}: {e}")
 
 
 # ===== Chat Completions Endpoint =====
@@ -196,14 +333,28 @@ async def chat_completions(request: ChatCompletionRequest) -> Dict[str, Any]:
             messages=messages  # Pass messages array with RAG context included
         )
         llm_time = (time.time() - llm_start) * 1000
-        
+
         # Log LLM timing if enabled
         if config.log_output:
-            import logging
             from datetime import datetime
-            logger = logging.getLogger(__name__)
             timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
             logger.info(f"[{timestamp}] LLM Generation: {llm_time:.1f}ms")
+
+        # =========================================================================
+        # Session Management: Save messages, auto-ingest, auto-name
+        # =========================================================================
+        session_saved = False
+        if request.session_id and request.save_messages:
+            try:
+                session_saved = _handle_session_management(
+                    session_id=request.session_id,
+                    user_message=user_message,
+                    assistant_response=response,
+                    config=config
+                )
+            except Exception as e:
+                # Don't fail the request if session management fails
+                logger.error(f"Session management error: {e}")
         
         # Determine which provider was actually used
         # Note: If provider_used is None, gateway auto-selected based on config/fallback
@@ -278,6 +429,13 @@ async def chat_completions(request: ChatCompletionRequest) -> Dict[str, Any]:
             },
             "request_id": request_id
         }
+
+        # Add session info if messages were saved
+        if request.session_id and session_saved:
+            result["session"] = {
+                "session_id": request.session_id,
+                "messages_saved": True
+            }
         
         # Add RAG context metadata (for dev/admin debugging)
         if library_results or message_result.journal_results:
