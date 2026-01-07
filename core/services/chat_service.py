@@ -390,8 +390,17 @@ class ChatService:
                     user_message=user_message
                 )
             else:
-                # Use default: prepend context to user message
-                return f"{library_context_text}\n\n---\n\nUser Question: {user_message}"
+                # Use default: make user question prominent, context as reference
+                return f"""<CONTEXT_FOR_REFERENCE>
+The following information is provided as reference context ONLY. It may or may not be relevant to answering the user's question below.
+
+{library_context_text}
+</CONTEXT_FOR_REFERENCE>
+
+======================================
+USER'S ACTUAL QUESTION (ANSWER THIS):
+======================================
+{user_message}"""
         else:
             # No RAG context - return plain user message
             return user_message
@@ -467,10 +476,10 @@ class ChatService:
         parts = []
         
         if library_context:
-            parts.append("=== Relevant Knowledge ===\n" + library_context)
+            parts.append("[KNOWLEDGE BASE - Documents from your personal library]\n" + library_context)
         
         if journal_context:
-            parts.append("=== Relevant Conversation History ===\n" + journal_context)
+            parts.append("[PAST CONVERSATIONS - Previous chat history that may be relevant]\n" + journal_context)
         
         if not parts:
             return None
