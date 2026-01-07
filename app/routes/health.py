@@ -18,23 +18,64 @@ async def health_check() -> Dict[str, Any]:
 
 @router.get("/detailed")
 async def detailed_health_check() -> Dict[str, Any]:
-    """Detailed health check including LLM gateway status."""
-    from ..main import gateway
+    """Detailed health check including system components."""
+    from ..main import gateway, rag_instance
+    from core.config import get_config
+    from app.db import get_db_connection
     
+    components = {}
+    overall_status = "healthy"
+    
+    # Check LLM Gateway
     try:
-        gateway_health = await gateway.health_check()
-        return {
-            "status": "healthy" if gateway_health["ok"] else "degraded",
-            "service": "personal-ai-assistant-api", 
-            "version": "0.1.0",
-            "components": {
-                "llm_gateway": gateway_health
+        if gateway is None:
+            components["llm_gateway"] = {"status": "unhealthy", "error": "Not initialized"}
+            overall_status = "unhealthy"
+        else:
+            providers = gateway.get_available_providers()
+            components["llm_gateway"] = {
+                "status": "healthy" if providers else "degraded",
+                "providers": providers
             }
-        }
+            if not providers:
+                overall_status = "degraded"
     except Exception as e:
-        return {
-            "status": "unhealthy",
-            "service": "personal-ai-assistant-api",
-            "version": "0.1.0",
-            "error": str(e)
-        }
+        components["llm_gateway"] = {"status": "unhealthy", "error": str(e)}
+        overall_status = "unhealthy"
+    
+    # Check RAG System
+    try:
+        config = get_config()
+        if config.chat_context_enabled and rag_instance:
+            stats = rag_instance.get_stats()
+            components["rag_system"] = {
+                "status": "healthy",
+                "documents": stats.get("document_count", 0)
+            }
+        elif config.chat_context_enabled:
+            components["rag_system"] = {"status": "degraded", "error": "Not initialized"}
+            if overall_status == "healthy":
+                overall_status = "degraded"
+        else:
+            components["rag_system"] = {"status": "disabled"}
+    except Exception as e:
+        components["rag_system"] = {"status": "unhealthy", "error": str(e)}
+        if overall_status == "healthy":
+            overall_status = "degraded"
+    
+    # Check Database
+    try:
+        with get_db_connection() as conn:
+            conn.cursor().execute("SELECT 1").fetchone()
+        components["database"] = {"status": "healthy"}
+    except Exception as e:
+        components["database"] = {"status": "unhealthy", "error": str(e)}
+        if overall_status == "healthy":
+            overall_status = "degraded"
+    
+    return {
+        "status": overall_status,
+        "service": "personal-ai-assistant-api",
+        "version": "0.1.0",
+        "components": components
+    }
