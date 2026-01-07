@@ -3,21 +3,12 @@
 import os
 import asyncio
 from typing import Dict, Any, Optional, List
+from dotenv import load_dotenv
 from .providers import PurdueGenAI, AnthropicClient
 from .local import OllamaClient, OllamaConfig
 from core.config import get_config
 
-def load_env_file():
-    env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), '.env')
-    if os.path.exists(env_path):
-        with open(env_path, 'r') as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith('#') and '=' in line:
-                    key, value = line.split('=', 1)
-                    os.environ[key.strip()] = value.strip()
-
-load_env_file()
+load_dotenv()
 
 
 class AIGateway:

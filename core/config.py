@@ -40,11 +40,6 @@ class AppConfig(BaseSettings):
         default="llama3.1:8b",
         description="Default Ollama model (local)"
     )
-    
-    # Previously tested Ollama models (commented for reference):
-    # - llama3.2:1b (current default - lightweight, fast)
-    # - qwen3:8b (larger model, better quality, requires more resources)
-    # - qwen3:1.7b (medium size, balanced performance)
 
     # ===== Ollama Configuration =====
     ollama_base_url: str = Field(
@@ -223,7 +218,6 @@ class AppConfig(BaseSettings):
         description="Top-k entries to retrieve from Journal (1-50)"
     )
 
-    # ===== Document Source Configuration =====
     # ===== Document Source Configuration =====
     library_use_documents_folder: bool = Field(
         default=False,

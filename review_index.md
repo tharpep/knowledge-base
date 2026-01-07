@@ -327,7 +327,7 @@
 - Line 61: `# Check if Ollama is running during initialization` - obvious comment
 - Line 75: `# Cleanup sync client on destruction` - obvious comment
 
-## Category 3: AI-Generated Patterns and Weird Notes
+## Category 3: AI-Generated Patterns and Weird Notes ✅ COMPLETED
 
 ### `core/services/chat_service.py`
 - Line 27: `# Journal (chat history) results - now matches Library format` - migration note
@@ -352,7 +352,7 @@
 ### `agents/router.py`
 - Line 63: `# TODO: Implement LLM-based intent analysis in future phase` - only TODO found
 
-## Category 5: Weird Notes and AI Patterns
+## Category 5: Weird Notes and AI Patterns ✅ COMPLETED
 
 ### `core/config.py`
 - Line 44-47: Commented-out model list with "Previously tested Ollama models (commented for reference):" - reference note
@@ -377,6 +377,8 @@
 - Total files reviewed: 22+
 - **Category 1 (Verbose Docstrings):** ✅ COMPLETED - All 17 files cleaned (15 original + 2 additional)
 - **Category 2 (Unnecessary Comments):** ✅ COMPLETED - All obvious comments removed from listed files
+- **Category 3 (AI-Generated Patterns):** ✅ COMPLETED - Separator comments removed, migration notes cleaned
+- **Category 5 (Weird Notes):** ✅ COMPLETED - Commented-out code removed, duplicate headers fixed, load_env_file replaced with python-dotenv
 - Unnecessary comments: ~100+
 - AI-generated patterns: ~15
 - Missing TODOs: 1 (router.py)
