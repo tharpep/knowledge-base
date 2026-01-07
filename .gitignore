@@ -96,6 +96,8 @@ htmlcov/
 vector_store/
 embeddings/
 data/qdrant_db/
+data/journal_blob/
+data/library_blob/
 
 # Database
 *.db
@@ -136,6 +138,3 @@ dmypy.json
 *.sublime-workspace
 *.code-workspace
 .history/
-
-data/journal_blob/
-data/library_blob/
