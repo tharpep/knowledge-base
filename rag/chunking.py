@@ -1,61 +1,76 @@
-"""Shared text chunking utilities for RAG ingestion."""
+"""Semantic text chunking utilities for RAG ingestion."""
 
-from typing import List
+from typing import List, Tuple
 
 
 def chunk_text(
     text: str,
     chunk_size: int = 1000,
     overlap: int = 100,
-    prefer_paragraph_breaks: bool = True
+    is_markdown: bool = False
 ) -> List[str]:
-    """Split text into overlapping chunks, preferring natural break points."""
-    if len(text) <= chunk_size:
-        return [text] if text.strip() else []
+    """Split text into semantically meaningful chunks using LangChain."""
+    if not text or not text.strip():
+        return []
     
-    chunks = []
-    start = 0
+    from langchain_text_splitters import RecursiveCharacterTextSplitter
     
-    while start < len(text):
-        end = start + chunk_size
-        
-        if end < len(text):
-            if prefer_paragraph_breaks:
-                para_break = text.rfind("\n\n", start + chunk_size // 2, end)
-                if para_break > start:
-                    end = para_break + 2
-                else:
-                    end = _find_sentence_break(text, start, end)
-            else:
-                end = _find_sentence_break(text, start, end)
-        
-        chunk = text[start:end].strip()
-        if chunk:
-            chunks.append(chunk)
-        
-        start = end - overlap
-        if start >= len(text):
-            break
+    separators = ["\n\n", "\n", ". ", "? ", "! ", "; ", ", ", " ", ""]
     
-    return chunks
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=chunk_size,
+        chunk_overlap=overlap,
+        separators=separators,
+        length_function=len,
+    )
+    
+    chunks = splitter.split_text(text)
+    return [c.strip() for c in chunks if c.strip()]
 
 
-def _find_sentence_break(text: str, start: int, end: int) -> int:
-    """Find the best sentence break point within the range."""
-    separators = [". ", ".\n", "? ", "?\n", "! ", "!\n"]
+def chunk_markdown(
+    text: str,
+    chunk_size: int = 1000,
+    overlap: int = 100
+) -> List[Tuple[str, str]]:
+    """Split markdown text, preserving header context. Returns (chunk, section_title) tuples."""
+    if not text or not text.strip():
+        return []
     
-    best_break = end
-    min_pos = start + (end - start) // 2
+    from langchain_text_splitters import MarkdownHeaderTextSplitter, RecursiveCharacterTextSplitter
     
-    for sep in separators:
-        pos = text.rfind(sep, min_pos, end)
-        if pos > min_pos:
-            candidate = pos + len(sep)
-            if candidate > min_pos:
-                best_break = candidate
-                break
+    headers_to_split = [
+        ("#", "h1"),
+        ("##", "h2"),
+        ("###", "h3"),
+    ]
     
-    return best_break
+    md_splitter = MarkdownHeaderTextSplitter(headers_to_split_on=headers_to_split)
+    md_docs = md_splitter.split_text(text)
+    
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=chunk_size,
+        chunk_overlap=overlap,
+        separators=["\n\n", "\n", ". ", "? ", "! ", " ", ""],
+    )
+    
+    results = []
+    for doc in md_docs:
+        section_title = " > ".join(
+            doc.metadata.get(h, "") 
+            for h in ["h1", "h2", "h3"] 
+            if doc.metadata.get(h)
+        )
+        
+        if len(doc.page_content) <= chunk_size:
+            results.append((doc.page_content.strip(), section_title))
+        else:
+            sub_chunks = text_splitter.split_text(doc.page_content)
+            for chunk in sub_chunks:
+                if chunk.strip():
+                    results.append((chunk.strip(), section_title))
+    
+    return results
 
 
 def chunk_conversation(
@@ -68,5 +83,5 @@ def chunk_conversation(
         text=text,
         chunk_size=chunk_size,
         overlap=overlap,
-        prefer_paragraph_breaks=True
+        is_markdown=False
     )

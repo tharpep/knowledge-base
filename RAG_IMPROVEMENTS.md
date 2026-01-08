@@ -126,7 +126,7 @@ rerank_model: str = Field(default="BAAI/bge-reranker-v2-m3")
 
 ---
 
-### Phase 3: Semantic Chunking
+### Phase 3: Semantic Chunking ✅ COMPLETE
 
 Replace character-based chunking with semantic chunking in both Library and Journal.
 

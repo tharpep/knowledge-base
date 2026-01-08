@@ -29,17 +29,27 @@ class DocumentIngester:
             with open(file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
             
-            processed_content = self._preprocess_text(content)
-            
             from core.config import get_config
-            from rag.chunking import chunk_text
-            
             config = get_config()
-            chunks = chunk_text(
-                processed_content, 
-                chunk_size=config.library_chunk_size,
-                overlap=config.library_chunk_overlap
-            )
+            
+            is_markdown = file_path.suffix.lower() == '.md'
+            
+            if is_markdown:
+                from rag.chunking import chunk_markdown
+                chunk_results = chunk_markdown(
+                    content,
+                    chunk_size=config.library_chunk_size,
+                    overlap=config.library_chunk_overlap
+                )
+                chunks = [text for text, _ in chunk_results]
+            else:
+                processed_content = self._preprocess_text(content)
+                from rag.chunking import chunk_text
+                chunks = chunk_text(
+                    processed_content, 
+                    chunk_size=config.library_chunk_size,
+                    overlap=config.library_chunk_overlap
+                )
             
             count = self.rag.add_documents(chunks)
             
