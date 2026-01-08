@@ -16,6 +16,10 @@ Session Management:
 - Messages are saved to SQLite when session_id is provided
 - Session switch triggers auto-ingest of previous session
 - Session names are auto-generated from first user message
+
+TODO:
+- Add /v1/chat/simple endpoint: Direct gateway.chat() call without RAG context,
+  session management, or request logging. Simple request/response for basic AI calls.
 """
 
 import logging
