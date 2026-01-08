@@ -163,6 +163,18 @@ class AppConfig(BaseSettings):
         description="Sentence transformer model for embeddings (used by both Library and Journal)"
     )
     
+    # ===== Hybrid Search Configuration =====
+    use_hybrid_search: bool = Field(
+        default=True,
+        description="Enable hybrid search (dense + sparse vectors) for better retrieval"
+    )
+    hybrid_sparse_weight: float = Field(
+        default=0.3,
+        ge=0.0,
+        le=1.0,
+        description="Weight for sparse vectors in hybrid search (0=dense only, 1=sparse only)"
+    )
+    
     # ===== Mnemosyne: Hardware Selection =====
     hardware_mode: Literal["gpu", "cpu", "auto"] = Field(
         default="auto",

@@ -1,8 +1,8 @@
-"""Vector Store Operations"""
+"""Vector Store Operations with Hybrid Search Support"""
 
 import logging
 from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, VectorParams, PointStruct
+from qdrant_client.models import Distance, VectorParams, PointStruct, SparseVectorParams, SparseIndexParams
 from typing import List, Dict, Any, Tuple
 
 logger = logging.getLogger(__name__)
@@ -38,20 +38,28 @@ class VectorStore:
             self.client = QdrantClient(":memory:")
             logger.info("Using in-memory Qdrant storage")
     
-    def setup_collection(self, collection_name: str, embedding_dim: int) -> bool:
+    def setup_collection(self, collection_name: str, embedding_dim: int, hybrid: bool = False) -> bool:
         """Create Qdrant collection if it doesn't exist."""
         try:
             self.client.get_collection(collection_name)
             return True
         except:
             try:
-                self.client.create_collection(
-                    collection_name=collection_name,
-                    vectors_config=VectorParams(
-                        size=embedding_dim, 
-                        distance=Distance.COSINE
-                    ),
-                )
+                if hybrid:
+                    self.client.create_collection(
+                        collection_name=collection_name,
+                        vectors_config={
+                            "dense": VectorParams(size=embedding_dim, distance=Distance.COSINE)
+                        },
+                        sparse_vectors_config={
+                            "sparse": SparseVectorParams(index=SparseIndexParams())
+                        },
+                    )
+                else:
+                    self.client.create_collection(
+                        collection_name=collection_name,
+                        vectors_config=VectorParams(size=embedding_dim, distance=Distance.COSINE),
+                    )
                 return True
             except Exception as e:
                 print(f"Error creating collection: {e}")
@@ -67,7 +75,7 @@ class VectorStore:
             return 0
     
     def search(self, collection_name: str, query_vector: List[float], limit: int = 3) -> List[Tuple[str, float]]:
-        """Search for similar vectors."""
+        """Search for similar vectors (dense only)."""
         try:
             search_results = self.client.query_points(
                 collection_name=collection_name,
@@ -79,6 +87,35 @@ class VectorStore:
         except Exception as e:
             print(f"Error searching: {e}")
             return []
+    
+    def hybrid_search(self, collection_name: str, dense_vector: List[float], 
+                     sparse_vector: Dict[int, float], limit: int = 3,
+                     sparse_weight: float = 0.3) -> List[Tuple[str, float]]:
+        """Perform hybrid search combining dense and sparse vectors with RRF fusion."""
+        from qdrant_client.models import Prefetch, FusionQuery, Fusion, SparseVector
+        
+        try:
+            indices = list(sparse_vector.keys())
+            values = list(sparse_vector.values())
+            
+            results = self.client.query_points(
+                collection_name=collection_name,
+                prefetch=[
+                    Prefetch(query=dense_vector, using="dense", limit=limit * 2),
+                    Prefetch(
+                        query=SparseVector(indices=indices, values=values),
+                        using="sparse",
+                        limit=limit * 2
+                    )
+                ],
+                query=FusionQuery(fusion=Fusion.RRF),
+                limit=limit
+            ).points
+            
+            return [(hit.payload["text"], hit.score) for hit in results]
+        except Exception as e:
+            logger.error(f"Hybrid search failed: {e}")
+            return self.search(collection_name, dense_vector, limit)
     
     def get_collection_stats(self, collection_name: str) -> Dict[str, Any]:
         """Get collection statistics."""
@@ -111,7 +148,7 @@ class VectorStore:
             print(f"Error listing collections: {e}")
             return []
     
-    def clear_collection(self, collection_name: str, embedding_dim: int = 384) -> bool:
+    def clear_collection(self, collection_name: str, embedding_dim: int = 384, hybrid: bool = False) -> bool:
         """Clear all points from a collection by recreating it."""
         try:
             try:
@@ -119,14 +156,7 @@ class VectorStore:
             except:
                 pass
             
-            self.client.create_collection(
-                collection_name=collection_name,
-                vectors_config=VectorParams(
-                    size=embedding_dim, 
-                    distance=Distance.COSINE
-                ),
-            )
-            return True
+            return self.setup_collection(collection_name, embedding_dim, hybrid=hybrid)
         except Exception as e:
             print(f"Error clearing collection {collection_name}: {e}")
             return False

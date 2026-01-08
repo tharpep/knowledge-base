@@ -68,7 +68,7 @@ self._journal = JournalManager(
 
 ---
 
-### Phase 1: Hybrid Search with BGE-M3
+### Phase 1: Hybrid Search with BGE-M3 ✅ COMPLETE
 
 Enable sparse embeddings from BGE-M3 for hybrid (semantic + lexical) retrieval.
 
