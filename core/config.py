@@ -171,6 +171,22 @@ class AppConfig(BaseSettings):
         description="Weight for sparse vectors in hybrid search (0=dense only, 1=sparse only)"
     )
     
+    # ===== Reranking Configuration =====
+    rerank_enabled: bool = Field(
+        default=True,
+        description="Enable cross-encoder reranking for improved retrieval accuracy"
+    )
+    rerank_candidates: int = Field(
+        default=30,
+        ge=5,
+        le=100,
+        description="Number of candidates to fetch before reranking (5-100)"
+    )
+    rerank_model: str = Field(
+        default="BAAI/bge-reranker-v2-m3",
+        description="Cross-encoder model for reranking"
+    )
+    
     # ===== Mnemosyne: Hardware Selection =====
     hardware_mode: Literal["gpu", "cpu", "auto"] = Field(
         default="auto",

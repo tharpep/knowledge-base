@@ -4,6 +4,7 @@ from typing import List, Tuple, Optional
 from llm.gateway import AIGateway
 from .vector_store import VectorStore
 from .retriever import DocumentRetriever
+from .reranker import CrossEncoderReranker
 from .journal import JournalManager
 from core.config import get_config
 
@@ -28,6 +29,7 @@ class ContextEngine:
         self.retriever = DocumentRetriever(model_name=self.config.embedding_model)
         
         self._journal: Optional[JournalManager] = None
+        self._reranker: Optional[CrossEncoderReranker] = None
         self._enable_journal = enable_journal
         
         self._setup_collection()
@@ -55,6 +57,12 @@ class ContextEngine:
             )
         return self._journal
     
+    @property
+    def reranker(self) -> Optional[CrossEncoderReranker]:
+        if self.config.rerank_enabled and self._reranker is None:
+            self._reranker = CrossEncoderReranker(model_name=self.config.rerank_model)
+        return self._reranker
+    
     def add_documents(self, documents, metadata: dict = None):
         """Add documents to the vector database."""
         dense, sparse = self.retriever.encode_documents(documents)
@@ -62,15 +70,27 @@ class ContextEngine:
         return self.vector_store.add_points(self.collection_name, points)
     
     def search(self, query, limit=None):
-        """Search for relevant documents."""
+        """Search for relevant documents with optional reranking."""
         if limit is None:
             limit = self.config.chat_library_top_k
         
+        if self.config.rerank_enabled:
+            candidates = self.config.rerank_candidates
+        else:
+            candidates = limit
+        
         dense, sparse = self.retriever.encode_query(query)
-        return self.vector_store.hybrid_search(
-            self.collection_name, dense, sparse, limit,
+        results = self.vector_store.hybrid_search(
+            self.collection_name, dense, sparse, candidates,
             sparse_weight=self.config.hybrid_sparse_weight
         )
+        
+        if self.config.rerank_enabled and results:
+            docs = [doc for doc, _ in results]
+            reranked = self.reranker.rerank(query, docs, top_k=limit)
+            return reranked
+        
+        return results[:limit]
     
     def get_context_for_chat(
         self,

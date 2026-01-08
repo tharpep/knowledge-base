@@ -92,7 +92,7 @@ Enable sparse embeddings from BGE-M3 for hybrid (semantic + lexical) retrieval.
 
 ---
 
-### Phase 2: Cross-Encoder Reranking
+### Phase 2: Cross-Encoder Reranking ✅ COMPLETE
 
 Two-stage retrieval: fast vector search → accurate reranking.
 
