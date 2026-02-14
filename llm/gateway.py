@@ -1,111 +1,48 @@
-"""Simple AI Gateway"""
+"""LLM Gateway — routes all chat requests through the api-gateway."""
 
-import os
-import asyncio
-from typing import Dict, Any, Optional, List
-from dotenv import load_dotenv
-from .providers import PurdueGenAI, AnthropicClient
-from .local import OllamaClient, OllamaConfig
+from typing import Any
+
+import httpx
+
 from core.config import get_config
-
-load_dotenv()
 
 
 class AIGateway:
-    """Simple gateway for AI requests"""
-    
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
-        """Initialize gateway with configuration."""
-        self.providers = {}
+    """Routes LLM requests to the api-gateway's /ai/v1/chat/completions endpoint."""
+
+    def __init__(self) -> None:
         self.config = get_config()
-        self._setup_providers(config or {})
-    
-    def _setup_providers(self, config: Dict[str, Any]):
-        if "anthropic" in config:
-            api_key = config["anthropic"].get("api_key")
-            self.providers["anthropic"] = AnthropicClient(api_key)
-        elif self.config.anthropic_api_key:
-            self.providers["anthropic"] = AnthropicClient()
-        elif os.getenv('CLAUDE') or os.getenv('ANTHROPIC_API_KEY'):
-            self.providers["anthropic"] = AnthropicClient()
-        
-        if "purdue" in config:
-            api_key = config["purdue"].get("api_key")
-            self.providers["purdue"] = PurdueGenAI(api_key)
-        elif self.config.purdue_api_key:
-            self.providers["purdue"] = PurdueGenAI()
-        elif os.getenv('PURDUE_API_KEY'):
-            self.providers["purdue"] = PurdueGenAI()
-        
-        if "ollama" in config:
-            ollama_config = OllamaConfig(
-                base_url=config["ollama"].get("base_url", self.config.ollama_base_url),
-                default_model=config["ollama"].get("default_model", self.config.model_ollama)
-            )
-            self.providers["ollama"] = OllamaClient(ollama_config)
-        elif self.config.provider_type == "local" and self.config.provider_name == "ollama":
-            ollama_config = OllamaConfig(
-                base_url=self.config.ollama_base_url,
-                default_model=self.config.model_ollama
-            )
-            self.providers["ollama"] = OllamaClient(ollama_config)
-    
-    def chat(self, message: str, provider: Optional[str] = None, model: Optional[str] = None, messages: Optional[List[Dict[str, str]]] = None) -> str:
-        """Send a chat message to specified AI provider."""
-        if provider is None:
-            if "anthropic" in self.providers:
-                provider = "anthropic"
-            elif self.config.provider_name in self.providers:
-                provider = self.config.provider_name
-            elif self.config.provider_fallback and self.config.provider_fallback in self.providers:
-                provider = self.config.provider_fallback
-            elif "ollama" in self.providers:
-                provider = "ollama"
-            elif "purdue" in self.providers:
-                provider = "purdue"
-            else:
-                raise Exception(f"No providers available. Configure provider in config or set API keys in .env")
-        
-        if provider not in self.providers:
-            available = ", ".join(self.providers.keys())
-            raise Exception(f"Provider '{provider}' not available. Available: {available}")
-        
-        provider_client = self.providers[provider]
-        
-        if provider == "ollama":
-            return self._chat_ollama(provider_client, message, model, messages)
-        else:
-            if model is None:
-                model = self.config.get_model_for_provider(provider)
-            if messages:
-                return provider_client.chat(messages, model)
-            else:
-                return provider_client.chat(message, model)
-    
-    def _chat_ollama(self, client: OllamaClient, message: str, model: Optional[str] = None, messages: Optional[List[Dict[str, str]]] = None) -> str:
-        if messages:
-            return client.chat(messages, model=model)
-        else:
-            return client.chat(message, model=model)
-    
-    def get_available_providers(self) -> List[str]:
-        """Get list of available providers."""
-        return list(self.providers.keys())
-    
-    async def embeddings(self, prompt: str, model: Optional[str] = None) -> Dict[str, Any]:
-        """Generate embeddings for text."""
-        if "ollama" in self.providers:
-            ollama_client = self.providers["ollama"]
-            return await ollama_client.embeddings(prompt, model)
-        else:
-            raise Exception("No embedding provider available")
 
+    def chat(
+        self,
+        message: str | None = None,
+        messages: list[dict[str, str]] | None = None,
+        model: str | None = None,
+    ) -> str:
+        """Send a chat request and return the response text."""
+        if messages is None:
+            if message is None:
+                raise ValueError("Either message or messages must be provided")
+            messages = [{"role": "user", "content": message}]
 
-if __name__ == "__main__":
-    try:
-        gateway = AIGateway()
-        response = gateway.chat("Hello! What is your name?")
-        print(f"AI Response: {response}")
-        print(f"Available providers: {gateway.get_available_providers()}")
-    except Exception as e:
-        print(f"Error: {e}")
+        url = f"{self.config.api_gateway_url.rstrip('/')}/ai/v1/chat/completions"
+        payload: dict[str, Any] = {
+            "messages": messages,
+            "model": model or self.config.default_model,
+        }
+
+        with httpx.Client(timeout=60.0) as client:
+            response = client.post(
+                url,
+                json=payload,
+                headers={"X-API-Key": self.config.api_gateway_key},
+            )
+
+        response.raise_for_status()
+        data = response.json()
+
+        # OpenAI-compatible response shape
+        return data["choices"][0]["message"]["content"]
+
+    def get_available_providers(self) -> list[str]:
+        return ["gateway"]
