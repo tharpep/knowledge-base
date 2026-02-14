@@ -38,13 +38,13 @@ class AppConfig(BaseSettings):
     )
 
     # ===== Embeddings =====
-    voyage_api_key: Optional[str] = Field(
+    cohere_api_key: Optional[str] = Field(
         default=None,
-        description="Voyage AI API key for cloud embeddings",
+        description="Cohere API key for cloud embeddings and reranking",
     )
     embedding_model: str = Field(
-        default="voyage-3.5-lite",
-        description="Embedding model name (Voyage AI or OpenAI)",
+        default="embed-v4.0",
+        description="Cohere embedding model name",
     )
 
     # ===== Hybrid Search =====
@@ -67,8 +67,8 @@ class AppConfig(BaseSettings):
         description="Number of candidates to retrieve before reranking",
     )
     rerank_model: str = Field(
-        default="BAAI/bge-reranker-v2-m3",
-        description="Cross-encoder model for reranking",
+        default="rerank-v4",
+        description="Cohere reranking model name",
     )
 
     # ===== Query Expansion =====
