@@ -1,15 +1,13 @@
 [tool.poetry]
 name = "personal-ai"
 version = "0.1.0"
-description = "Personal AI Assistant - Local-first AI with RAG and tools"
+description = "Personal AI Assistant - cloud-first KB service with RAG and tools"
 authors = ["Your Name <your.email@example.com>"]
 readme = "README.md"
 packages = [
     {include = "app"},
     {include = "llm"},
     {include = "rag"},
-    {include = "agents"},
-    {include = "connectors"},
     {include = "core"},
     {include = "cli"},
 ]
@@ -21,11 +19,16 @@ uvicorn = {extras = ["standard"], version = ">=0.24.0"}
 pydantic = ">=2.5.0"
 pydantic-settings = ">=2.1.0"
 httpx = ">=0.25.0"
-# RAG and ML dependencies
+# Database
+asyncpg = ">=0.29.0"
+# Embeddings (cloud)
+voyageai = ">=0.2.0"
+# Reranking (cross-encoder, local — until Phase 2C)
 sentence-transformers = ">=2.2.0"
-qdrant-client = ">=1.7.0"
 torch = ">=2.0.0"
 transformers = ">=4.30.0"
+einops = "^0.8.1"
+flagembedding = "^1.3.5"
 # Additional utilities
 python-dotenv = ">=1.0.0"
 typer = {extras = ["all"], version = ">=0.9.0"}
@@ -33,11 +36,6 @@ typer = {extras = ["all"], version = ">=0.9.0"}
 python-multipart = ">=0.0.6"
 pypdf2 = ">=3.0.0"
 python-docx = ">=1.1.0"
-# Job queue
-redis = ">=5.0.0"
-arq = ">=0.26.0"
-einops = "^0.8.1"
-flagembedding = "^1.3.5"
 langchain-text-splitters = {version = ">=1.1.0", python = ">=3.11,<4.0"}
 
 [tool.poetry.group.dev.dependencies]
