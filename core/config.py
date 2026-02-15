@@ -52,13 +52,13 @@ class AppConfig(BaseSettings):
         default=0.3,
         ge=0.0,
         le=1.0,
-        description="Weight for sparse vectors in hybrid search (0=dense only, 1=sparse only)",
+        description="Weight for FTS in hybrid search (0=dense only, 1=FTS only)",
     )
 
     # ===== Reranking =====
     rerank_enabled: bool = Field(
         default=True,
-        description="Enable cross-encoder reranking after retrieval",
+        description="Enable Cohere reranking after retrieval",
     )
     rerank_candidates: int = Field(
         default=30,
@@ -77,22 +77,22 @@ class AppConfig(BaseSettings):
         description="Enable LLM-based query expansion for better retrieval",
     )
 
-    # ===== Library (document KB) =====
-    library_collection_name: str = Field(
-        default="library_docs",
-        description="Collection/table name for KB chunks",
+    # ===== KB (knowledge base) =====
+    kb_table_name: str = Field(
+        default="kb_chunks",
+        description="Table name for KB chunks",
     )
-    library_clear_on_ingest: bool = Field(
+    kb_clear_on_ingest: bool = Field(
         default=True,
-        description="Clear collection before ingesting new documents",
+        description="Clear table before ingesting new documents",
     )
-    library_chunk_size: int = Field(
+    kb_chunk_size: int = Field(
         default=1000,
         ge=100,
         le=5000,
         description="Maximum characters per chunk",
     )
-    library_chunk_overlap: int = Field(
+    kb_chunk_overlap: int = Field(
         default=100,
         ge=0,
         le=500,
@@ -104,23 +104,23 @@ class AppConfig(BaseSettings):
         default=True,
         description="Master switch: enable RAG context injection in chat",
     )
-    chat_library_enabled: bool = Field(
+    chat_kb_enabled: bool = Field(
         default=True,
-        description="Enable Library (document RAG) context in chat",
+        description="Enable KB (document RAG) context in chat",
     )
-    chat_library_top_k: int = Field(
+    chat_kb_top_k: int = Field(
         default=30,
         ge=1,
         le=100,
         description="Top-k chunks to retrieve from KB",
     )
-    chat_library_similarity_threshold: float = Field(
+    chat_kb_similarity_threshold: float = Field(
         default=0.15,
         ge=0.0,
         le=1.0,
         description="Minimum similarity score for KB context",
     )
-    chat_library_use_cache: bool = Field(
+    chat_kb_use_cache: bool = Field(
         default=True,
         description="Cache KB results for similar queries",
     )
