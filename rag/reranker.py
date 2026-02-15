@@ -1,38 +1,51 @@
-"""Cross-Encoder Reranker for two-stage retrieval."""
+"""Voyage AI reranker — wraps rerank-2.5 for KB retrieval."""
 
-from typing import List, Tuple
+import asyncio
+import logging
+from typing import TYPE_CHECKING, Optional
+
+import voyageai
+
+from core.config import get_config
+
+if TYPE_CHECKING:
+    from rag.retriever import Chunk
+
+logger = logging.getLogger(__name__)
+
+_client: Optional[voyageai.Client] = None
 
 
-class CrossEncoderReranker:
-    """Reranks search results using a cross-encoder model."""
-    
-    def __init__(self, model_name: str = "BAAI/bge-reranker-v2-m3"):
-        """Initialize the reranker."""
-        self.model_name = model_name
-        self._model = None
+def _get_client() -> voyageai.Client:
+    global _client
+    if _client is None:
+        config = get_config()
+        if not config.voyage_api_key:
+            raise RuntimeError("VOYAGE_API_KEY not set")
+        _client = voyageai.Client(api_key=config.voyage_api_key)
+    return _client
 
-    @property
-    def model(self):
-        """Lazy-load the cross-encoder model."""
-        if self._model is None:
-            from FlagEmbedding import FlagReranker
-            import torch
-            use_fp16 = torch.cuda.is_available()
-            self._model = FlagReranker(self.model_name, use_fp16=use_fp16)
-        return self._model
-    
-    def rerank(self, query: str, documents: List[str], top_k: int = 5) -> List[Tuple[str, float]]:
-        """Rerank documents by relevance to query."""
-        if not documents:
-            return []
-        
-        pairs = [[query, doc] for doc in documents]
-        scores = self.model.compute_score(pairs, normalize=True)
-        
-        if isinstance(scores, float):
-            scores = [scores]
-        
-        scored_docs = list(zip(documents, scores))
-        scored_docs.sort(key=lambda x: x[1], reverse=True)
-        
-        return scored_docs[:top_k]
+
+async def rerank(query: str, chunks: list["Chunk"], top_k: int) -> list["Chunk"]:
+    """Rerank chunks using Voyage rerank-2.5. Returns top_k in relevance order."""
+    if not chunks:
+        return []
+
+    config = get_config()
+    client = _get_client()
+    documents = [c.content for c in chunks]
+
+    result = await asyncio.to_thread(
+        client.rerank,
+        query,
+        documents,
+        model=config.rerank_model,
+        top_k=min(top_k, len(chunks)),
+    )
+
+    reranked = []
+    for r in result.results:
+        chunk = chunks[r.index]
+        chunk.rerank_score = r.relevance_score
+        reranked.append(chunk)
+    return reranked
