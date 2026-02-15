@@ -21,8 +21,8 @@ pydantic-settings = ">=2.1.0"
 httpx = ">=0.25.0"
 # Database
 asyncpg = ">=0.29.0"
-# Embeddings & Reranking (Cohere cloud)
-cohere = ">=5.0.0"
+# Embeddings & Reranking (Voyage AI)
+voyageai = ">=0.3.0"
 # Additional utilities
 python-dotenv = ">=1.0.0"
 typer = {extras = ["all"], version = ">=0.9.0"}
