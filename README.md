@@ -1,110 +1,121 @@
-# My-AI: Local-First Intelligence Platform
+# KB Service
 
-A privacy-focused personal AI assistant built for local-first execution with optional cloud fallbacks. Designed around Retrieval Augmented Generation (RAG) to leverage your personal documents and integrated tools for enhanced productivity.
+Cloud-first personal knowledge base. Ingests documents from Google Drive, chunks and embeds them with Voyage AI, stores vectors in PostgreSQL + pgvector, and exposes a hybrid retrieval API (dense + FTS → RRF → rerank).
 
-## Key Features
+Deployed to GCP Cloud Run. All external access goes through the api-gateway `/kb/*` proxy — this service is internal.
 
-- **Privacy-Centric**: Data stays local by default. No external data sharing without explicit intent.
-- **Local Intelligence**: Powered by Ollama/vLLM for primary processing, ensuring low latency and offline capability.
-- **RAG Capabilities**: Search and cite from your personal document corpus with built-in document ingestion and vector storage.
-- **OpenAI-Compatible API**: Drop-in replacement for OpenAI endpoints (`/v1/chat/completions`), supporting any compatible client.
-- **Extensible Tool System**: Modular architecture for integrating read-only tools and services.
-- **Detailed Monitoring**: SQLite-backed request logging for debugging and performance tracking.
+## Architecture
 
-## Getting Started
+```
+Google Drive folders (General, Projects, Purdue, Career, Reference)
+    ↓  api-gateway /storage
+KB Service (this repo)
+    ↓  chunk → embed (Voyage AI) → pgvector (Cloud SQL)
+api-gateway /kb/* proxy
+    ↓
+Agent / local-mcp / any consumer
+```
+
+## API
+
+All routes require `X-API-Key` header when `API_KEY` is set. Auth is disabled when `API_KEY` is empty (local dev).
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/v1/kb/search` | Hybrid search (dense + FTS → RRF → rerank) |
+| `POST` | `/v1/kb/sync` | Sync Drive folders into kb_chunks |
+| `GET` | `/v1/kb/sources` | List tracked files with sync status |
+| `GET` | `/v1/kb/files` | List indexed files with chunk counts |
+| `GET` | `/v1/kb/stats` | Total chunk and file counts |
+| `DELETE` | `/v1/kb` | Clear all indexed content |
+| `DELETE` | `/v1/kb/files/{id}` | Remove a specific file |
+| `POST` | `/v1/chat/completions` | OpenAI-compatible proxy with RAG injection |
+| `GET` | `/health` | Health check (no auth) |
+
+### Search request
+
+```json
+{
+  "query": "how does auth refresh work?",
+  "top_k": 5,
+  "categories": ["projects", "general"],
+  "threshold": 0.15,
+  "expand_query": false
+}
+```
+
+`categories` filters to specific Drive subfolders. Omit to search all.
+
+## Setup
 
 ### Prerequisites
-- **Python 3.11+**
-- **[Ollama](https://ollama.ai/)** (installed and running)
-- **Poetry** (recommended) or pip
 
-### Installation
+- Python 3.11+
+- Poetry
+- PostgreSQL with pgvector (local: Docker; prod: GCP Cloud SQL)
+- Voyage AI API key
+- api-gateway running and accessible
 
-1.  **Clone the repository**:
-    ```bash
-    git clone https://github.com/yourusername/MY-AI.git
-    cd MY-AI
-    ```
-
-2.  **Pull required models** (adjust based on your hardware):
-    ```bash
-    # Standard Setup (8GB+ RAM)
-    ollama pull qwen3:1.7b
-    ollama pull llama3.2:1b
-    ```
-
-3.  **Install dependencies**:
-    ```bash
-    poetry install
-    ```
-
-4.  **Initialize environment**:
-    ```bash
-    poetry shell
-    myai setup
-    ```
-
-## Usage
-
-### Command Line Interface (CLI)
-
-The `myai` CLI provides direct access to chat, configuration, and demos.
+### Local dev
 
 ```bash
-# Interactive Chat
-myai chat
+# Install dependencies
+poetry install
 
-# Chat with specific model
-myai chat --provider ollama --model qwen3:8b
+# Copy and fill in env vars
+cp .env.example .env
 
-# Ingest documents for RAG
-myai ingest --folder ./data/documents
-
-# View Configuration
-myai config
+# Start (auth disabled when API_KEY is empty)
+poetry run uvicorn app.main:app --reload
 ```
 
-### API Server
+### Environment variables
 
-Start the API server for external client integration:
+| Variable | Description |
+|----------|-------------|
+| `API_KEY` | Key callers must send. Empty = auth disabled. |
+| `DATABASE_URL` | PostgreSQL connection string (`postgresql+asyncpg://...`) |
+| `VOYAGE_API_KEY` | Voyage AI key for embeddings and reranking |
+| `API_GATEWAY_URL` | api-gateway base URL |
+| `API_GATEWAY_KEY` | api-gateway API key (for outbound LLM calls) |
 
+See `.env.example` for all available settings.
+
+## Project structure
+
+```
+app/
+  main.py          — FastAPI app, lifespan, router registration
+  dependencies.py  — API key auth
+  routes/
+    health.py      — /health
+    query.py       — /v1/kb/search, /v1/kb/stats
+    ingest.py      — /v1/kb/sync, /v1/kb/sources, /v1/kb/files
+    llm.py         — /v1/chat/completions (RAG-injected)
+    config.py      — /v1/config
+core/
+  config.py        — AppConfig (pydantic-settings)
+  database.py      — asyncpg pool, schema init (kb_chunks + kb_sources)
+rag/
+  loader.py        — Drive file listing + download via api-gateway
+  sync.py          — Drive → kb_chunks sync engine (incremental)
+  chunking.py      — Text chunking (langchain-text-splitters)
+  embedder.py      — Voyage AI embeddings
+  reranker.py      — Voyage AI reranking
+  retriever.py     — Hybrid retrieval (dense + FTS → RRF → rerank)
+llm/
+  gateway.py       — LLM client (proxies to api-gateway /ai)
+```
+
+## Deployment
+
+Deploys to GCP Cloud Run via GitHub Actions on push to `main` (`.github/workflows/deploy.yml`).
+
+One-time GCP setup:
 ```bash
-# Start server
-make dev
-# API available at http://localhost:8000
+gcloud artifacts repositories create kb-service \
+  --repository-format=docker \
+  --location=us-central1
 ```
 
-**Common Endpoints:**
-- `POST /v1/chat/completions`: Standard chat completion.
-- `POST /v1/query`: RAG-specific endpoint with citations.
-- `GET /v1/models`: List available models.
-- `GET /health/detailed`: System health status.
-
-## Configuration
-
-Configuration is managed via `core/config.py` and environment variables (`.env`).
-
-**Example `.env`**:
-```env
-PROVIDER_TYPE=local
-PROVIDER_NAME=ollama
-MODEL_DEFAULT=llama3.2:1b
-OLLAMA_BASE_URL=http://localhost:11434
-```
-
-## Project Structure
-
-```
-MY-AI/
-├── app/       # FastAPI application & routes
-├── agents/    # Tool orchestration & routing
-├── cli/       # Command-line interface
-├── core/      # Config & shared utilities
-├── llm/       # LLM gateway & providers
-├── rag/       # RAG pipeline & vector store
-└── tests/     # Test suite
-```
-
-## License
-
-This project is open source. Please check the `LICENSE` file for details.
+Add `GCP_PROJECT_ID` and `GCP_SA_KEY` secrets to the GitHub repo. Set env vars on the Cloud Run service in the GCP console.
