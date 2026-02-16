@@ -22,6 +22,7 @@ class DriveFileRecord:
     name: str
     mime_type: str
     modified_time: str
+    category: str           # KB subfolder name (e.g. "general", "projects")
     size: Optional[int] = None
 
 
@@ -35,16 +36,15 @@ def _gateway_headers() -> dict:
     return {"X-API-Key": config.api_gateway_key} if config.api_gateway_key else {}
 
 
-async def list_drive_files(modified_after: Optional[str] = None) -> list[DriveFileRecord]:
-    """List files in the KB/General Drive folder via the api-gateway."""
-    params: dict = {}
-    if modified_after:
-        params["modified_after"] = modified_after
+async def list_drive_files() -> list[DriveFileRecord]:
+    """List files across all KB subfolders via the api-gateway.
 
+    Returns files from all configured subfolders (General, Projects, Purdue,
+    Career, Reference). Each record includes its source category.
+    """
     async with httpx.AsyncClient(timeout=30.0) as client:
         r = await client.get(
             _gateway_url("/storage/files"),
-            params=params,
             headers=_gateway_headers(),
         )
         r.raise_for_status()
@@ -56,6 +56,7 @@ async def list_drive_files(modified_after: Optional[str] = None) -> list[DriveFi
             name=f["name"],
             mime_type=f["mime_type"],
             modified_time=f["modified_time"],
+            category=f["category"],
             size=f.get("size"),
         )
         for f in data.get("files", [])

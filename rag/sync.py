@@ -124,13 +124,11 @@ def _needs_sync(file: DriveFileRecord, source: Optional[dict]) -> bool:
     return file_modified > last_synced
 
 
-async def sync_drive(category: str = "general", force: bool = False) -> dict:
-    """Sync the KB Drive folder into kb_chunks, using kb_sources for change detection.
+async def sync_drive(force: bool = False) -> dict:
+    """Sync all KB Drive subfolders into kb_chunks, using kb_sources for change detection.
 
     Args:
-        category:  Source category label stored on chunks and in kb_sources.
-                   Defaults to 'general' (current storage router limitation).
-        force:     If True, re-sync every file regardless of modification time.
+        force: If True, re-sync every file regardless of modification time.
 
     Returns:
         dict with keys: files_synced, files_skipped, files_deleted, chunks_inserted,
@@ -139,9 +137,9 @@ async def sync_drive(category: str = "general", force: bool = False) -> dict:
     config = get_config()
     pool = get_pool()
 
-    # All files currently in Drive
+    # All files across all KB subfolders (category comes from each file's DriveFileRecord)
     drive_files = await list_drive_files()
-    logger.info(f"Drive sync: {len(drive_files)} file(s) found in Drive")
+    logger.info(f"Drive sync: {len(drive_files)} file(s) found across all KB subfolders")
 
     # Existing kb_sources state for change detection and deletion tracking
     existing_sources = await _get_all_kb_sources(pool)
@@ -198,7 +196,7 @@ async def sync_drive(category: str = "general", force: bool = False) -> dict:
                 pool,
                 drive_file_id=file.id,
                 filename=file.name,
-                source_category=category,
+                source_category=file.category,
                 chunks=chunks,
                 embeddings=all_embeddings,
             )
@@ -206,7 +204,7 @@ async def sync_drive(category: str = "general", force: bool = False) -> dict:
             # Update kb_sources within its own connection (outside chunk transaction)
             async with pool.acquire() as conn:
                 await _upsert_kb_source(
-                    conn, file.id, file.name, category, file.modified_time, inserted
+                    conn, file.id, file.name, file.category, file.modified_time, inserted
                 )
 
             files_synced += 1

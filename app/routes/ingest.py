@@ -35,7 +35,7 @@ async def run_sync(
     using kb_sources change tracking). Pass force=true to re-sync everything.
     """
     try:
-        result = await sync_drive(force=force)
+        result = await sync_drive(force=force)  # category comes from each file's Drive folder
         return SyncResponse(**result)
     except Exception as e:
         logger.error(f"KB sync failed: {e}")

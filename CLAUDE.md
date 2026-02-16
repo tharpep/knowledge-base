@@ -116,15 +116,18 @@ Config knobs (all in `core/config.py`): `hybrid_sparse_weight`, `rerank_enabled`
 ### Sync Pipeline (`rag/sync.py`)
 
 ```
-list_drive_files() → GET api-gateway/storage/files
+list_drive_files() → GET api-gateway/storage/files  (all subfolders, category per file)
+    → diff against kb_sources (skip unchanged files, detect deletions)
     → download_file() → GET api-gateway/storage/files/{id}/content
     → parse_content() (PDF/DOCX/text)
     → chunk_text()
     → embed_documents() in batches of 96
-    → atomic transaction: DELETE old chunks + INSERT new chunks per file
+    → atomic transaction: DELETE old chunks + INSERT new chunks (with source_category)
+    → upsert kb_sources (last_synced, chunk_count, status)
 ```
 
-Source is currently scoped to `Knowledge Base → General` Drive folder (gateway limitation). Multi-category support is pending.
+`sync_drive(force=False)` — smart incremental by default. `force=True` re-syncs everything.
+KB subfolders: `general`, `projects`, `purdue`, `career`, `reference`.
 
 ### LLM Calls (`llm/gateway.py`)
 
