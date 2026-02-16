@@ -9,8 +9,6 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 
 from core.config import get_config
-from core.profile_manager import get_profile_manager
-from core.prompt_manager import get_prompt_manager
 
 logger = logging.getLogger(__name__)
 
@@ -31,20 +29,6 @@ class ChatCompletionRequest(BaseModel):
     max_tokens: Optional[int] = Field(None, gt=0)
     use_kb: Optional[bool] = Field(None, description="Inject KB context into the last user message")
     system_prompt: Optional[str] = Field(None, description="Override the default system prompt")
-
-
-# ===== Helpers =====
-
-def _build_system_content(system_prompt_override: Optional[str]) -> str:
-    """Compose system prompt from prompt manager + user profile."""
-    prompt_mgr = get_prompt_manager()
-    profile_mgr = get_profile_manager()
-
-    system = system_prompt_override or prompt_mgr.get_system_prompt()
-    profile_ctx = profile_mgr.get_context_string()
-    if profile_ctx:
-        system = f"{system}\n\n{profile_ctx}"
-    return system
 
 
 async def _inject_kb_context(messages: List[Dict], query: str) -> list:
@@ -87,7 +71,8 @@ async def chat_completions(request: ChatCompletionRequest) -> Dict[str, Any]:
     # Build messages list with system prompt injected at position 0
     messages: List[Dict] = [{"role": m.role, "content": m.content} for m in request.messages]
     if not messages or messages[0]["role"] != "system":
-        messages.insert(0, {"role": "system", "content": _build_system_content(request.system_prompt)})
+        system = request.system_prompt or "You are a helpful AI assistant."
+        messages.insert(0, {"role": "system", "content": system})
 
     # KB context injection
     kb_chunks = []
