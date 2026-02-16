@@ -118,8 +118,8 @@ def create_app() -> FastAPI:
 
     app.include_router(health.router, prefix="/health", tags=["health"])
     app.include_router(llm.router, prefix="/v1", tags=["llm"])
-    app.include_router(query.router, prefix="/v1", tags=["rag"])
-    app.include_router(ingest.router, prefix="/v1", tags=["ingest"])
+    app.include_router(query.router, prefix="/v1", tags=["kb"])
+    app.include_router(ingest.router, prefix="/v1", tags=["kb"])
     app.include_router(config.router, prefix="/v1", tags=["config"])
     app.include_router(memory.router, prefix="/v1", tags=["memory"])
     app.include_router(logs.router, prefix="/v1", tags=["logs"])
