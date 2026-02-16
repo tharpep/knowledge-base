@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 import httpx
+import openpyxl
 from PyPDF2 import PdfReader
 from docx import Document
 
@@ -14,6 +15,7 @@ from core.config import get_config
 logger = logging.getLogger(__name__)
 
 _TEXT_MIMES = {"text/plain", "text/csv", "text/markdown"}
+_XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 
 @dataclass
@@ -102,6 +104,20 @@ def parse_content(data: bytes, content_type: str, filename: str) -> str:
         doc = Document(io.BytesIO(data))
         paragraphs = [p.text for p in doc.paragraphs if p.text.strip()]
         return "\n\n".join(paragraphs)
+
+    # XLSX / Google Sheets (exported as XLSX to capture all sheets)
+    if content_type == _XLSX_MIME or filename.endswith(".xlsx"):
+        wb = openpyxl.load_workbook(io.BytesIO(data), data_only=True)
+        sheets = []
+        for sheet_name in wb.sheetnames:
+            ws = wb[sheet_name]
+            rows = []
+            for row in ws.iter_rows(values_only=True):
+                if any(c is not None for c in row):
+                    rows.append("\t".join("" if c is None else str(c) for c in row))
+            if rows:
+                sheets.append(f"=== {sheet_name} ===\n" + "\n".join(rows))
+        return "\n\n".join(sheets)
 
     # Fallback: try UTF-8
     logger.warning(f"Unknown content type '{content_type}' for '{filename}', attempting UTF-8 decode")
