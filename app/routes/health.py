@@ -1,4 +1,4 @@
-"""Health check endpoint"""
+"""Health check endpoints."""
 
 from fastapi import APIRouter
 from typing import Dict, Any
@@ -12,7 +12,7 @@ async def health_check() -> Dict[str, Any]:
     return {
         "status": "healthy",
         "service": "personal-ai-assistant-api",
-        "version": "0.1.0"
+        "version": "0.1.0",
     }
 
 
@@ -20,14 +20,14 @@ async def health_check() -> Dict[str, Any]:
 async def detailed_health_check() -> Dict[str, Any]:
     """Detailed health check including system components."""
     from ..main import gateway
-    from rag.rag_setup import get_rag
+    from core.database import get_pool
     from core.config import get_config
-    from app.db import get_db_connection
-    
-    components = {}
+
+    config = get_config()
+    components: Dict[str, Any] = {}
     overall_status = "healthy"
-    
-    # Check LLM Gateway
+
+    # LLM Gateway
     try:
         if gateway is None:
             components["llm_gateway"] = {"status": "unhealthy", "error": "Not initialized"}
@@ -36,48 +36,39 @@ async def detailed_health_check() -> Dict[str, Any]:
             providers = gateway.get_available_providers()
             components["llm_gateway"] = {
                 "status": "healthy" if providers else "degraded",
-                "providers": providers
+                "providers": providers,
             }
             if not providers:
                 overall_status = "degraded"
     except Exception as e:
         components["llm_gateway"] = {"status": "unhealthy", "error": str(e)}
         overall_status = "unhealthy"
-    
-    # Check RAG System
+
+    # PostgreSQL
     try:
-        config = get_config()
-        rag = get_rag()
-        if config.chat_context_enabled and rag:
-            stats = rag.get_stats()
-            components["rag_system"] = {
-                "status": "healthy",
-                "documents": stats.get("document_count", 0)
-            }
-        elif config.chat_context_enabled:
-            components["rag_system"] = {"status": "degraded", "error": "Not initialized"}
-            if overall_status == "healthy":
-                overall_status = "degraded"
-        else:
-            components["rag_system"] = {"status": "disabled"}
-    except Exception as e:
-        components["rag_system"] = {"status": "unhealthy", "error": str(e)}
-        if overall_status == "healthy":
-            overall_status = "degraded"
-    
-    # Check Database
-    try:
-        with get_db_connection() as conn:
-            conn.cursor().execute("SELECT 1").fetchone()
+        pool = get_pool()
+        async with pool.acquire() as conn:
+            await conn.fetchval("SELECT 1")
         components["database"] = {"status": "healthy"}
     except Exception as e:
         components["database"] = {"status": "unhealthy", "error": str(e)}
         if overall_status == "healthy":
             overall_status = "degraded"
-    
+
+    # KB (quick chunk count)
+    try:
+        pool = get_pool()
+        async with pool.acquire() as conn:
+            count = await conn.fetchval("SELECT COUNT(*) FROM kb_chunks")
+        components["kb"] = {"status": "healthy", "chunks": count}
+    except Exception as e:
+        components["kb"] = {"status": "unhealthy", "error": str(e)}
+        if overall_status == "healthy":
+            overall_status = "degraded"
+
     return {
         "status": overall_status,
         "service": "personal-ai-assistant-api",
         "version": "0.1.0",
-        "components": components
+        "components": components,
     }

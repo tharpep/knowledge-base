@@ -12,7 +12,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from llm.gateway import AIGateway
 from core.database import init_pool, close_pool
 from .db import init_database, log_request
-from .routes import health, llm, query, ingest, config, memory, logs, profile
+from .routes import health, llm, query, ingest, config, logs, profile
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -121,7 +121,6 @@ def create_app() -> FastAPI:
     app.include_router(query.router, prefix="/v1", tags=["kb"])
     app.include_router(ingest.router, prefix="/v1", tags=["kb"])
     app.include_router(config.router, prefix="/v1", tags=["config"])
-    app.include_router(memory.router, prefix="/v1", tags=["memory"])
     app.include_router(logs.router, prefix="/v1", tags=["logs"])
     app.include_router(profile.router, prefix="/v1", tags=["profile"])
 
