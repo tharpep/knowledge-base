@@ -76,6 +76,18 @@ async def list_kb_files():
         raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 
+@router.delete("/kb", status_code=204)
+async def clear_kb():
+    """Truncate kb_chunks — removes all indexed content. Use before a clean re-sync."""
+    try:
+        pool = get_pool()
+        async with pool.acquire() as conn:
+            await conn.execute("TRUNCATE TABLE kb_chunks")
+    except Exception as e:
+        logger.error(f"Failed to clear KB: {e}")
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+
 @router.delete("/kb/files/{drive_file_id}", status_code=204)
 async def delete_kb_file(drive_file_id: str):
     """Remove all chunks for a specific Drive file from kb_chunks."""
