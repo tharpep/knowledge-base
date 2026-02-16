@@ -17,6 +17,12 @@ class AppConfig(BaseSettings):
         extra="ignore",
     )
 
+    # ===== Auth =====
+    api_key: str = Field(
+        default="",
+        description="API key required on all routes (X-API-Key header). Disabled when empty.",
+    )
+
     # ===== API Gateway =====
     api_gateway_url: str = Field(
         default="https://api-gateway-252332699398.us-central1.run.app",

@@ -3,11 +3,12 @@
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from llm.gateway import AIGateway
 from core.database import init_pool, close_pool
+from .dependencies import verify_api_key
 from .routes import health, llm, query, ingest, config
 
 logging.basicConfig(level=logging.INFO)
@@ -61,11 +62,12 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    _auth = [Depends(verify_api_key)]
     app.include_router(health.router, prefix="/health", tags=["health"])
-    app.include_router(llm.router, prefix="/v1", tags=["llm"])
-    app.include_router(query.router, prefix="/v1", tags=["kb"])
-    app.include_router(ingest.router, prefix="/v1", tags=["kb"])
-    app.include_router(config.router, prefix="/v1", tags=["config"])
+    app.include_router(llm.router, prefix="/v1", tags=["llm"], dependencies=_auth)
+    app.include_router(query.router, prefix="/v1", tags=["kb"], dependencies=_auth)
+    app.include_router(ingest.router, prefix="/v1", tags=["kb"], dependencies=_auth)
+    app.include_router(config.router, prefix="/v1", tags=["config"], dependencies=_auth)
 
     return app
 
