@@ -15,17 +15,17 @@ _SCHEMA_SQL = """
 CREATE EXTENSION IF NOT EXISTS vector;
 
 CREATE TABLE IF NOT EXISTS kb_chunks (
-    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    content       TEXT NOT NULL,
-    embedding     vector(1024),
-    fts           TSVECTOR GENERATED ALWAYS AS
-                    (to_tsvector('english', content)) STORED,
-    drive_file_id TEXT,
-    filename      TEXT,
-    folder        TEXT,
-    chunk_index   INTEGER,
-    metadata      JSONB DEFAULT '{}',
-    created_at    TIMESTAMPTZ DEFAULT NOW()
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    content         TEXT NOT NULL,
+    embedding       vector(1024),
+    fts             TSVECTOR GENERATED ALWAYS AS
+                        (to_tsvector('english', content)) STORED,
+    source_category TEXT,
+    drive_file_id   TEXT,
+    filename        TEXT,
+    chunk_index     INTEGER,
+    metadata        JSONB DEFAULT '{}',
+    created_at      TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS kb_chunks_embedding_idx
@@ -36,6 +36,32 @@ CREATE INDEX IF NOT EXISTS kb_chunks_fts_idx
 
 CREATE INDEX IF NOT EXISTS kb_chunks_drive_file_id_idx
     ON kb_chunks (drive_file_id);
+
+CREATE INDEX IF NOT EXISTS kb_chunks_source_category_idx
+    ON kb_chunks (source_category);
+
+CREATE TABLE IF NOT EXISTS kb_sources (
+    file_id       TEXT PRIMARY KEY,
+    filename      TEXT,
+    category      TEXT,
+    modified_time TIMESTAMPTZ,
+    last_synced   TIMESTAMPTZ,
+    chunk_count   INT DEFAULT 0,
+    status        TEXT DEFAULT 'active'
+);
+
+CREATE INDEX IF NOT EXISTS kb_sources_category_idx
+    ON kb_sources (category);
+
+CREATE INDEX IF NOT EXISTS kb_sources_status_idx
+    ON kb_sources (status);
+"""
+
+# Migrations applied to existing tables on startup.
+# Safe to run repeatedly — all are idempotent.
+_MIGRATION_SQL = """
+ALTER TABLE kb_chunks ADD COLUMN IF NOT EXISTS source_category TEXT;
+ALTER TABLE kb_chunks DROP COLUMN IF EXISTS folder;
 """
 
 
@@ -56,6 +82,7 @@ async def init_pool() -> None:
 
     async with _pool.acquire() as conn:
         await conn.execute(_SCHEMA_SQL)
+        await conn.execute(_MIGRATION_SQL)
 
     logger.info("Database pool ready and schema initialized")
 
