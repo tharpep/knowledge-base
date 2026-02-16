@@ -58,7 +58,7 @@ class AppConfig(BaseSettings):
     # ===== Reranking =====
     rerank_enabled: bool = Field(
         default=True,
-        description="Enable Cohere reranking after retrieval",
+        description="Enable Voyage reranking after retrieval",
     )
     rerank_candidates: int = Field(
         default=30,
