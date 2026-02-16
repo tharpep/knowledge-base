@@ -15,11 +15,12 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-class KBQueryRequest(BaseModel):
+class KBSearchRequest(BaseModel):
     query: str
     top_k: Optional[int] = None
     candidates: Optional[int] = None
     threshold: Optional[float] = None
+    categories: Optional[list[str]] = None
     expand_query: bool = False
 
 
@@ -28,20 +29,21 @@ class KBChunkResult(BaseModel):
     filename: str
     drive_file_id: str
     chunk_index: int
+    source_category: str
     rerank_score: float
     dense_score: float
     rrf_score: float
 
 
-class KBQueryResponse(BaseModel):
+class KBSearchResponse(BaseModel):
     results: list[KBChunkResult]
     count: int
     query: str
     expanded_query: Optional[str] = None
 
 
-@router.post("/kb/query", response_model=KBQueryResponse)
-async def query_kb(body: KBQueryRequest):
+@router.post("/kb/search", response_model=KBSearchResponse)
+async def search_kb(body: KBSearchRequest):
     """Search kb_chunks using hybrid retrieval (dense + FTS → RRF → Voyage rerank)."""
     query = body.query.strip()
     if not query:
@@ -61,15 +63,17 @@ async def query_kb(body: KBQueryRequest):
             top_k=body.top_k,
             candidates=body.candidates,
             threshold=body.threshold,
+            categories=body.categories or None,
         )
 
-        return KBQueryResponse(
+        return KBSearchResponse(
             results=[
                 KBChunkResult(
                     content=c.content,
                     filename=c.filename,
                     drive_file_id=c.drive_file_id,
                     chunk_index=c.chunk_index,
+                    source_category=c.source_category,
                     rerank_score=c.rerank_score,
                     dense_score=c.dense_score,
                     rrf_score=c.rrf_score,
@@ -84,7 +88,7 @@ async def query_kb(body: KBQueryRequest):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"KB query failed: {e}")
+        logger.error(f"KB search failed: {e}")
         raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 

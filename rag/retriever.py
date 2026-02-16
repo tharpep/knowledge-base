@@ -21,26 +21,44 @@ class Chunk:
     filename: str
     drive_file_id: str
     chunk_index: int
+    source_category: str = ""
     dense_score: float = 0.0
     fts_score: float = 0.0
     rrf_score: float = 0.0
     rerank_score: float = 0.0
 
 
-async def _dense_search(conn, embedding: list[float], limit: int) -> list[Chunk]:
+async def _dense_search(
+    conn, embedding: list[float], limit: int, categories: Optional[list[str]] = None
+) -> list[Chunk]:
     """Top-limit chunks by cosine similarity (pgvector HNSW)."""
     emb_str = f"[{','.join(str(x) for x in embedding)}]"
-    rows = await conn.fetch(
-        """
-        SELECT id::text, content, filename, drive_file_id, chunk_index,
-               1 - (embedding <=> $1::vector) AS score
-        FROM kb_chunks
-        ORDER BY embedding <=> $1::vector
-        LIMIT $2
-        """,
-        emb_str,
-        limit,
-    )
+    if categories:
+        rows = await conn.fetch(
+            """
+            SELECT id::text, content, filename, drive_file_id, chunk_index, source_category,
+                   1 - (embedding <=> $1::vector) AS score
+            FROM kb_chunks
+            WHERE source_category = ANY($3::text[])
+            ORDER BY embedding <=> $1::vector
+            LIMIT $2
+            """,
+            emb_str,
+            limit,
+            categories,
+        )
+    else:
+        rows = await conn.fetch(
+            """
+            SELECT id::text, content, filename, drive_file_id, chunk_index, source_category,
+                   1 - (embedding <=> $1::vector) AS score
+            FROM kb_chunks
+            ORDER BY embedding <=> $1::vector
+            LIMIT $2
+            """,
+            emb_str,
+            limit,
+        )
     return [
         Chunk(
             id=r["id"],
@@ -48,26 +66,45 @@ async def _dense_search(conn, embedding: list[float], limit: int) -> list[Chunk]
             filename=r["filename"] or "",
             drive_file_id=r["drive_file_id"] or "",
             chunk_index=r["chunk_index"] or 0,
+            source_category=r["source_category"] or "",
             dense_score=float(r["score"]),
         )
         for r in rows
     ]
 
 
-async def _fts_search(conn, query_text: str, limit: int) -> list[Chunk]:
+async def _fts_search(
+    conn, query_text: str, limit: int, categories: Optional[list[str]] = None
+) -> list[Chunk]:
     """Top-limit chunks by PostgreSQL FTS rank (GIN index)."""
-    rows = await conn.fetch(
-        """
-        SELECT id::text, content, filename, drive_file_id, chunk_index,
-               ts_rank(fts, plainto_tsquery('english', $1)) AS score
-        FROM kb_chunks
-        WHERE fts @@ plainto_tsquery('english', $1)
-        ORDER BY score DESC
-        LIMIT $2
-        """,
-        query_text,
-        limit,
-    )
+    if categories:
+        rows = await conn.fetch(
+            """
+            SELECT id::text, content, filename, drive_file_id, chunk_index, source_category,
+                   ts_rank(fts, plainto_tsquery('english', $1)) AS score
+            FROM kb_chunks
+            WHERE fts @@ plainto_tsquery('english', $1)
+              AND source_category = ANY($3::text[])
+            ORDER BY score DESC
+            LIMIT $2
+            """,
+            query_text,
+            limit,
+            categories,
+        )
+    else:
+        rows = await conn.fetch(
+            """
+            SELECT id::text, content, filename, drive_file_id, chunk_index, source_category,
+                   ts_rank(fts, plainto_tsquery('english', $1)) AS score
+            FROM kb_chunks
+            WHERE fts @@ plainto_tsquery('english', $1)
+            ORDER BY score DESC
+            LIMIT $2
+            """,
+            query_text,
+            limit,
+        )
     return [
         Chunk(
             id=r["id"],
@@ -75,6 +112,7 @@ async def _fts_search(conn, query_text: str, limit: int) -> list[Chunk]:
             filename=r["filename"] or "",
             drive_file_id=r["drive_file_id"] or "",
             chunk_index=r["chunk_index"] or 0,
+            source_category=r["source_category"] or "",
             fts_score=float(r["score"]),
         )
         for r in rows
@@ -111,6 +149,7 @@ async def retrieve(
     top_k: Optional[int] = None,
     candidates: Optional[int] = None,
     threshold: Optional[float] = None,
+    categories: Optional[list[str]] = None,
 ) -> list[Chunk]:
     """Hybrid KB retrieval: dense + FTS → RRF → Voyage rerank.
 
@@ -119,6 +158,7 @@ async def retrieve(
         top_k:      Final chunks to return (default: config.chat_kb_top_k).
         candidates: Candidates fetched before reranking (default: config.rerank_candidates).
         threshold:  Min rerank_score to keep (default: config.chat_kb_similarity_threshold).
+        categories: Optional list of source_category values to restrict search to.
 
     Returns:
         Chunks ordered by relevance, length <= top_k.
@@ -135,12 +175,12 @@ async def retrieve(
 
     async with pool.acquire() as conn:
         # 2. Dense search
-        dense = await _dense_search(conn, embedding, candidates)
+        dense = await _dense_search(conn, embedding, candidates, categories)
 
         # 3. FTS search (skipped when sparse_weight == 0 → dense-only mode)
         sparse: list[Chunk] = []
         if config.hybrid_sparse_weight > 0:
-            sparse = await _fts_search(conn, query, candidates)
+            sparse = await _fts_search(conn, query, candidates, categories)
 
     # 4. RRF fusion (or pass-through if no sparse results)
     fused = _rrf_fuse(dense, sparse, candidates) if sparse else dense[:candidates]
