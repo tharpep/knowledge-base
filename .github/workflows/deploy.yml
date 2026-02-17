@@ -20,6 +20,7 @@ env:
 
 jobs:
   deploy:
+    if: false  # disabled — running locally, not deployed to Cloud Run yet
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
