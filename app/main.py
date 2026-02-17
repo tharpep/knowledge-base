@@ -7,6 +7,7 @@ from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from llm.gateway import AIGateway
+from core.config import get_config
 from core.database import init_pool, close_pool
 from .dependencies import verify_api_key
 from .routes import health, llm, query, ingest, config
