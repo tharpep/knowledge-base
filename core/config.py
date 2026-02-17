@@ -132,9 +132,9 @@ class AppConfig(BaseSettings):
     )
 
     # ===== Logging =====
-    log_output: bool = Field(
-        default=True,
-        description="Enable verbose logging for RAG and system operations",
+    debug: bool = Field(
+        default=False,
+        description="Enable DEBUG-level logging for full pipeline visibility (embed timing, retrieval scores, sync steps)",
     )
 
     # ===== Ollama (local dev only — never deployed) =====

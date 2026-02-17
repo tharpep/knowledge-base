@@ -172,7 +172,10 @@ async def sync_drive(force: bool = False) -> dict:
 
         try:
             data, content_type, _ = await download_file(file.id)
+            logger.debug(f"  downloaded '{file.name}': {len(data):,} bytes, type={content_type}")
+
             text = parse_content(data, content_type, file.name)
+            logger.debug(f"  parsed '{file.name}': {len(text):,} chars")
 
             if not text.strip():
                 logger.warning(f"No text extracted from '{file.name}', skipping")
@@ -186,6 +189,10 @@ async def sync_drive(force: bool = False) -> dict:
             if not chunks:
                 continue
 
+            n_batches = (len(chunks) + _EMBED_BATCH - 1) // _EMBED_BATCH
+            logger.debug(
+                f"  embedding '{file.name}': {len(chunks)} chunk(s) in {n_batches} batch(es)"
+            )
             all_embeddings: list[list[float]] = []
             for i in range(0, len(chunks), _EMBED_BATCH):
                 batch = chunks[i : i + _EMBED_BATCH]

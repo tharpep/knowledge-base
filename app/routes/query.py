@@ -51,11 +51,16 @@ async def search_kb(body: KBSearchRequest):
 
     try:
         expanded_query = None
+        logger.debug(
+            f"kb/search: query='{query[:80]}' top_k={body.top_k} candidates={body.candidates} "
+            f"threshold={body.threshold} categories={body.categories} expand={body.expand_query}"
+        )
 
         if body.expand_query:
             from rag.query_processor import QueryProcessor
             qp = QueryProcessor()
             expanded_query = await asyncio.to_thread(qp.expand, query)
+            logger.debug(f"kb/search: expanded query='{expanded_query[:80]}'")
             query = expanded_query
 
         chunks = await retrieve(
@@ -64,6 +69,11 @@ async def search_kb(body: KBSearchRequest):
             candidates=body.candidates,
             threshold=body.threshold,
             categories=body.categories or None,
+        )
+
+        logger.debug(
+            f"kb/search: returning {len(chunks)} chunk(s)"
+            + (f", top rerank_score={chunks[0].rerank_score:.4f}" if chunks else "")
         )
 
         return KBSearchResponse(

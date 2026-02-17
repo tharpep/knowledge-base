@@ -1,6 +1,7 @@
 """Hybrid KB retrieval: pgvector cosine + PostgreSQL FTS → RRF → Voyage rerank."""
 
 import logging
+import time
 from dataclasses import dataclass
 from typing import Optional
 
@@ -170,32 +171,63 @@ async def retrieve(
 
     pool = get_pool()
 
+    logger.debug(
+        f"retrieve: query='{query[:80]}' top_k={top_k} candidates={candidates} "
+        f"threshold={threshold} categories={categories}"
+    )
+
     # 1. Embed the query
+    t0 = time.perf_counter()
     embedding = await embed_query(query)
+    logger.debug(f"  [1] embed_query: {time.perf_counter() - t0:.3f}s, dim={len(embedding)}")
 
     async with pool.acquire() as conn:
         # 2. Dense search
+        t0 = time.perf_counter()
         dense = await _dense_search(conn, embedding, candidates, categories)
+        logger.debug(
+            f"  [2] dense search: {len(dense)} candidates in {time.perf_counter() - t0:.3f}s"
+            + (f", top score={dense[0].dense_score:.4f}" if dense else "")
+        )
 
         # 3. FTS search (skipped when sparse_weight == 0 → dense-only mode)
         sparse: list[Chunk] = []
         if config.hybrid_sparse_weight > 0:
+            t0 = time.perf_counter()
             sparse = await _fts_search(conn, query, candidates, categories)
+            logger.debug(
+                f"  [3] fts search: {len(sparse)} candidates in {time.perf_counter() - t0:.3f}s"
+                + (f", top score={sparse[0].fts_score:.4f}" if sparse else "")
+            )
+        else:
+            logger.debug("  [3] fts search: skipped (sparse_weight=0)")
 
     # 4. RRF fusion (or pass-through if no sparse results)
     fused = _rrf_fuse(dense, sparse, candidates) if sparse else dense[:candidates]
+    logger.debug(
+        f"  [4] rrf fusion: {len(fused)} candidates"
+        + (f", top rrf_score={fused[0].rrf_score:.4f}" if fused else "")
+    )
 
     if not fused:
         return []
 
     # 5. Rerank with Voyage rerank-2.5
     if config.rerank_enabled:
+        t0 = time.perf_counter()
         fused = await rerank(query, fused, top_k)
+        logger.debug(
+            f"  [5] rerank: {len(fused)} chunks in {time.perf_counter() - t0:.3f}s"
+            + (f", top rerank_score={fused[0].rerank_score:.4f}" if fused else "")
+        )
     else:
         fused = fused[:top_k]
+        logger.debug(f"  [5] rerank: skipped, truncated to {len(fused)} chunks")
 
     # 6. Apply similarity threshold
+    before = len(fused)
     if threshold > 0:
         fused = [c for c in fused if c.rerank_score >= threshold]
+    logger.debug(f"  [6] threshold ({threshold}): {before} → {len(fused)} chunks returned")
 
     return fused

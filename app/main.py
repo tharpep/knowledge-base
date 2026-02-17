@@ -14,6 +14,15 @@ from .routes import health, llm, query, ingest, config
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+def _configure_logging() -> None:
+    config = get_config()
+    level = logging.DEBUG if config.debug else logging.INFO
+    logging.getLogger().setLevel(level)
+    # Keep uvicorn access logs at WARNING so they don't flood debug output
+    logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
+    if config.debug:
+        logger.debug("DEBUG logging enabled — full pipeline output active")
+
 gateway: AIGateway = None
 
 
@@ -22,6 +31,7 @@ async def lifespan(app: FastAPI):
     """Manage FastAPI application lifecycle."""
     global gateway
 
+    _configure_logging()
     logger.info("Starting KB Service API")
 
     # PostgreSQL pool + schema

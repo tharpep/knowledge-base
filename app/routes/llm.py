@@ -77,16 +77,26 @@ async def chat_completions(request: ChatCompletionRequest) -> Dict[str, Any]:
     # KB context injection
     kb_chunks = []
     use_kb = request.use_kb if request.use_kb is not None else config.chat_kb_enabled
+    logger.debug(
+        f"chat: model={request.model or config.default_model}, use_kb={use_kb}, "
+        f"messages={len(messages)}"
+    )
     if use_kb and config.chat_context_enabled:
         user_query = next(
             (m["content"] for m in reversed(messages) if m["role"] == "user"), None
         )
         if user_query:
             kb_chunks = await _inject_kb_context(messages, user_query)
+            logger.debug(
+                f"chat: KB injected {len(kb_chunks)} chunk(s) from "
+                f"{sorted({c.filename for c in kb_chunks})}"
+            )
 
     # Call the gateway
     try:
+        t0 = time.time()
         response_text = gateway.chat(messages=messages, model=request.model)
+        logger.debug(f"chat: gateway response in {time.time() - t0:.3f}s, {len(response_text)} chars")
     except Exception as e:
         logger.error(f"Gateway call failed: {e}")
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail=f"Gateway error: {e}")
