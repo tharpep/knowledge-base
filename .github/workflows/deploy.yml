@@ -5,7 +5,12 @@
 # - Artifact Registry repo named "kb-service" in us-central1 (one-time GCP setup):
 #     gcloud artifacts repositories create kb-service \
 #       --repository-format=docker --location=us-central1
-# - Configure env vars / secrets for the Cloud Run service manually in the GCP console.
+# - Secret Manager secrets (in the same GCP project):
+#     api-key       → API_KEY and API_GATEWAY_KEY
+#     voyage-api-key → VOYAGE_API_KEY
+#     database-url  → DATABASE_URL
+# - Service account must have roles: Cloud Run Admin, Artifact Registry Writer,
+#   Secret Manager Secret Accessor, Cloud SQL Client
 
 name: Deploy to GCP Cloud Run
 
@@ -20,7 +25,6 @@ env:
 
 jobs:
   deploy:
-    if: false  # disabled — running locally, not deployed to Cloud Run yet
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -48,4 +52,5 @@ jobs:
             --image=${{ env.REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE }}:${{ github.sha }} \
             --region=${{ env.REGION }} \
             --platform=managed \
-            --allow-unauthenticated
+            --no-allow-unauthenticated \
+            --set-secrets=API_KEY=api-key:latest,API_GATEWAY_KEY=api-key:latest,VOYAGE_API_KEY=voyage-api-key:latest,DATABASE_URL=database-url:latest
