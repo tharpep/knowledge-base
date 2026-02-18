@@ -52,5 +52,6 @@ jobs:
             --image=${{ env.REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE }}:${{ github.sha }} \
             --region=${{ env.REGION }} \
             --platform=managed \
-            --no-allow-unauthenticated \
-            --set-secrets=API_KEY=api-key:latest,API_GATEWAY_KEY=api-key:latest,VOYAGE_API_KEY=voyage-api-key:latest,DATABASE_URL=database-url:latest
+            --allow-unauthenticated \
+            --set-secrets=API_KEY=api-key:latest,API_GATEWAY_KEY=api-key:latest,VOYAGE_API_KEY=voyage-api-key:latest,DATABASE_URL=database-url:latest \
+            --set-env-vars=API_GATEWAY_URL=${{ secrets.GATEWAY_URL }}
