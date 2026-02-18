@@ -35,10 +35,11 @@ async def _upsert_kb_source(
     chunk_count: int,
 ) -> None:
     """Insert or update a kb_sources record, setting last_synced to now."""
+    modified_dt = datetime.fromisoformat(modified_time.replace("Z", "+00:00"))
     await conn.execute(
         """
         INSERT INTO kb_sources (file_id, filename, category, modified_time, last_synced, chunk_count, status)
-        VALUES ($1, $2, $3, $4::timestamptz, NOW(), $5, 'active')
+        VALUES ($1, $2, $3, $4, NOW(), $5, 'active')
         ON CONFLICT (file_id) DO UPDATE SET
             filename      = EXCLUDED.filename,
             category      = EXCLUDED.category,
@@ -50,7 +51,7 @@ async def _upsert_kb_source(
         file_id,
         filename,
         category,
-        modified_time,
+        modified_dt,
         chunk_count,
     )
 
