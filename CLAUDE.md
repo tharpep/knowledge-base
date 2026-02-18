@@ -29,7 +29,7 @@ No test suite exists yet.
 
 ## Architecture
 
-**Entry point:** `app/main.py` — creates FastAPI app with lifespan that initialises the asyncpg pool + schema, and the `AIGateway` singleton. Includes SQLite request logging middleware (non-critical). Mounts all routers under `/v1`.
+**Entry point:** `app/main.py` — creates FastAPI app with lifespan that initialises the asyncpg pool + schema and the `AIGateway` singleton. Mounts all routers under `/v1` (and health under `/health`).
 
 **Configuration:** `core/config.py` — `AppConfig` via pydantic-settings, loaded from `.env`. Singleton via `get_config()`. Key env vars: `DATABASE_URL`, `VOYAGE_API_KEY`, `API_GATEWAY_URL`, `API_GATEWAY_KEY`.
 
@@ -37,27 +37,21 @@ No test suite exists yet.
 
 ```
 app/
-  main.py            — FastAPI app + lifespan
-  db.py              — SQLite request logging (non-critical)
+  main.py            — FastAPI app + lifespan, CORS, router mounts
   routes/
-    health.py        — GET /health
+    health.py        — GET /health, GET /health/detailed
     llm.py           — POST /v1/chat/completions (OpenAI-compat, optional KB injection)
                        GET  /v1/models
-    query.py         — POST /v1/kb/query (hybrid retrieval)
-                       GET  /v1/kb/stats
-    ingest.py        — POST /v1/kb/sync (full sync from Drive)
-                       POST /v1/kb/sync/incremental (modified_after param)
-                       GET  /v1/kb/files (indexed files + chunk counts)
-                       DELETE /v1/kb (truncate all chunks)
-                       DELETE /v1/kb/files/{drive_file_id}
-    config.py        — GET /v1/config (current AppConfig values)
-    logs.py          — request log access
-    profile.py       — user profile for system prompt injection
+    query.py         — POST /v1/kb/search (hybrid retrieval), GET /v1/kb/stats
+    ingest.py        — POST /v1/kb/sync (Drive sync; force=true for full re-sync)
+                       GET  /v1/kb/sources, GET /v1/kb/files
+                       DELETE /v1/kb, DELETE /v1/kb/files/{drive_file_id}
+    config.py        — GET /v1/config, PATCH /v1/config
 
 core/
   config.py          — AppConfig (pydantic-settings singleton)
-  database.py        — asyncpg pool + schema init (kb_chunks table, pgvector extension)
-  profile_manager.py — user profile context injected into LLM system prompts
+  database.py        — asyncpg pool + schema init (kb_chunks, kb_sources, pgvector)
+  profile_manager.py — user profile context for system prompts (if used)
   prompt_manager.py  — system prompt templates
 
 llm/
@@ -65,14 +59,14 @@ llm/
   base_client.py     — provider interface
   local.py           — Ollama provider (local dev only, never deployed)
   providers/
-    anthropic.py     — direct Anthropic client (unused in current routing)
+    anthropic.py     — direct Anthropic client (unused; routing goes through gateway)
 
 rag/
   embedder.py        — Voyage AI embed_documents() / embed_query() (async, batched at 96)
   loader.py          — lists + downloads files from api-gateway /storage endpoints;
                        parses PDF (PyPDF2), DOCX (python-docx), plain text/CSV/markdown
   chunking.py        — text chunking (langchain-text-splitters)
-  sync.py            — sync_drive(): full/incremental Drive → kb_chunks pipeline
+  sync.py            — sync_drive(): Drive → kb_chunks using kb_sources for change detection
   retriever.py       — hybrid search: dense (pgvector) + FTS → RRF → Voyage rerank
   reranker.py        — Voyage rerank-2.5 via voyageai SDK
   query_processor.py — LLM query expansion via gateway (optional, per-request flag)
@@ -80,25 +74,10 @@ rag/
 
 ### Database Schema (`core/database.py`)
 
-Single table auto-created on startup:
+Tables auto-created on startup:
 
-```sql
-CREATE TABLE kb_chunks (
-    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    content       TEXT NOT NULL,
-    embedding     vector(1024),             -- Voyage AI voyage-4 (1024d)
-    fts           TSVECTOR GENERATED ALWAYS AS (to_tsvector('english', content)) STORED,
-    drive_file_id TEXT,
-    filename      TEXT,
-    folder        TEXT,
-    chunk_index   INTEGER,
-    metadata      JSONB DEFAULT '{}',
-    created_at    TIMESTAMPTZ DEFAULT NOW()
-);
--- Indexes: HNSW cosine (embedding), GIN (fts), btree (drive_file_id)
-```
-
-**Note:** `source_category` column and `kb_sources` tracking table from the dev plan are not yet implemented. Incremental sync relies on the caller passing `modified_after`.
+- **kb_chunks** — content, embedding (vector 1024), fts (tsvector), source_category, drive_file_id, filename, chunk_index, metadata. Indexes: HNSW (embedding), GIN (fts), btree (drive_file_id, source_category).
+- **kb_sources** — file_id (PK), filename, category, modified_time, last_synced, chunk_count, status. Used for incremental sync and deletion tracking.
 
 ### Retrieval Pipeline (`rag/retriever.py`)
 
