@@ -1,5 +1,6 @@
 """LLM routes — OpenAI-compatible chat completions."""
 
+import asyncio
 import logging
 import time
 import uuid
@@ -95,7 +96,7 @@ async def chat_completions(request: ChatCompletionRequest) -> Dict[str, Any]:
     # Call the gateway
     try:
         t0 = time.time()
-        response_text = gateway.chat(messages=messages, model=request.model)
+        response_text = await asyncio.to_thread(gateway.chat, messages=messages, model=request.model)
         logger.debug(f"chat: gateway response in {time.time() - t0:.3f}s, {len(response_text)} chars")
     except Exception as e:
         logger.error(f"Gateway call failed: {e}")

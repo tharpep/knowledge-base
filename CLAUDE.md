@@ -51,8 +51,6 @@ app/
 core/
   config.py          — AppConfig (pydantic-settings singleton)
   database.py        — asyncpg pool + schema init (kb_chunks, kb_sources, pgvector)
-  profile_manager.py — user profile context for system prompts (if used)
-  prompt_manager.py  — system prompt templates
 
 llm/
   gateway.py         — AIGateway: routes LLM calls to api-gateway /ai/v1/chat/completions

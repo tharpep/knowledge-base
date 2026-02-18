@@ -25,7 +25,7 @@ class AppConfig(BaseSettings):
 
     # ===== API Gateway =====
     api_gateway_url: str = Field(
-        default="https://api-gateway-252332699398.us-central1.run.app",
+        default="",
         description="API gateway base URL for LLM calls",
     )
     api_gateway_key: str = Field(

@@ -11,7 +11,7 @@ async def health_check() -> Dict[str, Any]:
     """Basic health check endpoint."""
     return {
         "status": "healthy",
-        "service": "personal-ai-assistant-api",
+        "service": "kb-service",
         "version": "0.1.0",
     }
 
@@ -68,7 +68,7 @@ async def detailed_health_check() -> Dict[str, Any]:
 
     return {
         "status": overall_status,
-        "service": "personal-ai-assistant-api",
+        "service": "kb-service",
         "version": "0.1.0",
         "components": components,
     }
