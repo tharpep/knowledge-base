@@ -17,6 +17,12 @@ class AppConfig(BaseSettings):
         extra="ignore",
     )
 
+    # ===== CORS =====
+    allowed_origins: list[str] = Field(
+        default=["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:3001", "http://127.0.0.1:3001"],
+        description="Allowed CORS origins. Set via ALLOWED_ORIGINS env var as a JSON array.",
+    )
+
     # ===== Auth =====
     api_key: str = Field(
         default="",
