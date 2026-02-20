@@ -1,11 +1,16 @@
 """KB sync routes — Drive → kb_chunks sync management."""
 
 import logging
+import uuid
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel
 
+from core.config import get_config
 from core.database import get_pool
+from rag.chunking import chunk_text
+from rag.embedder import embed_documents
 from rag.sync import sync_drive
 
 logger = logging.getLogger(__name__)
