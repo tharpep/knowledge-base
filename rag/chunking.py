@@ -2,6 +2,8 @@
 
 from typing import List, Tuple
 
+from langchain_text_splitters import MarkdownHeaderTextSplitter, RecursiveCharacterTextSplitter
+
 
 def chunk_text(
     text: str,
@@ -12,9 +14,7 @@ def chunk_text(
     """Split text into semantically meaningful chunks using LangChain."""
     if not text or not text.strip():
         return []
-    
-    from langchain_text_splitters import RecursiveCharacterTextSplitter
-    
+
     separators = ["\n\n", "\n", ". ", "? ", "! ", "; ", ", ", " ", ""]
     
     splitter = RecursiveCharacterTextSplitter(
@@ -36,9 +36,7 @@ def chunk_markdown(
     """Split markdown text, preserving header context. Returns (chunk, section_title) tuples."""
     if not text or not text.strip():
         return []
-    
-    from langchain_text_splitters import MarkdownHeaderTextSplitter, RecursiveCharacterTextSplitter
-    
+
     headers_to_split = [
         ("#", "h1"),
         ("##", "h2"),

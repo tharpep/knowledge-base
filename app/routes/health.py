@@ -1,14 +1,17 @@
 """Health check endpoints."""
 
+from typing import Any, Dict
+
 from fastapi import APIRouter
-from typing import Dict, Any
+
+from core.config import get_config
+from core.database import get_pool
 
 router = APIRouter()
 
 
 @router.get("/")
 async def health_check() -> Dict[str, Any]:
-    """Basic health check endpoint."""
     return {
         "status": "healthy",
         "service": "kb-service",
@@ -20,8 +23,6 @@ async def health_check() -> Dict[str, Any]:
 async def detailed_health_check() -> Dict[str, Any]:
     """Detailed health check including system components."""
     from ..main import gateway
-    from core.database import get_pool
-    from core.config import get_config
 
     config = get_config()
     components: Dict[str, Any] = {}

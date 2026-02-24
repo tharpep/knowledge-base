@@ -10,13 +10,12 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 
 from core.config import get_config
+from rag.retriever import retrieve
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-
-# ===== Request / Response Models =====
 
 class ChatMessage(BaseModel):
     role: str
@@ -35,7 +34,6 @@ class ChatCompletionRequest(BaseModel):
 async def _inject_kb_context(messages: List[Dict], query: str) -> list:
     """Retrieve KB chunks and prepend them to the last user message. Returns chunks used."""
     try:
-        from rag.retriever import retrieve
         chunks = await retrieve(query=query)
         if not chunks:
             return []
@@ -60,7 +58,6 @@ async def _inject_kb_context(messages: List[Dict], query: str) -> list:
         return []
 
 
-# ===== Endpoints =====
 
 @router.post("/chat/completions")
 async def chat_completions(request: ChatCompletionRequest) -> Dict[str, Any]:

@@ -7,8 +7,8 @@ from typing import Optional
 
 import httpx
 import openpyxl
-from PyPDF2 import PdfReader
 from docx import Document
+from PyPDF2 import PdfReader
 
 from core.config import get_config
 

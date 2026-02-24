@@ -6,11 +6,12 @@ from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from llm.gateway import AIGateway
 from core.config import get_config
-from core.database import init_pool, close_pool
+from core.database import close_pool, init_pool
+from llm.gateway import AIGateway
+
 from .dependencies import verify_api_key
-from .routes import health, llm, query, ingest, config
+from .routes import config, health, ingest, llm, query
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

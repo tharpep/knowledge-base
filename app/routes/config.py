@@ -6,12 +6,12 @@ from typing import Any, Dict, Optional
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 
+from core.config import get_config as load_config
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-
-# ===== Request Model =====
 
 class ConfigUpdateRequest(BaseModel):
     # Chat context
@@ -39,13 +39,10 @@ class ConfigUpdateRequest(BaseModel):
     log_output: Optional[bool] = None
 
 
-# ===== Endpoints =====
 
 @router.get("/config")
 async def get_config() -> Dict[str, Any]:
     """Get current application configuration. API keys are masked."""
-    from core.config import get_config as load_config
-
     try:
         cfg = load_config()
         return {
@@ -95,8 +92,6 @@ async def update_config(request: ConfigUpdateRequest) -> Dict[str, Any]:
     Update configuration values at runtime.
     Changes are NOT persisted to .env — restart reverts them.
     """
-    from core.config import get_config as load_config
-
     try:
         cfg = load_config()
         update_data = request.model_dump(exclude_unset=True)

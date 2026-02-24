@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 
 from core.database import get_pool
+from rag.query_processor import QueryProcessor
 from rag.retriever import retrieve
 
 logger = logging.getLogger(__name__)
@@ -57,7 +58,6 @@ async def search_kb(body: KBSearchRequest):
         )
 
         if body.expand_query:
-            from rag.query_processor import QueryProcessor
             qp = QueryProcessor()
             expanded_query = await asyncio.to_thread(qp.expand, query)
             logger.debug(f"kb/search: expanded query='{expanded_query[:80]}'")

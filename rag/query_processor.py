@@ -1,7 +1,7 @@
 """Query processor for LLM-based query expansion."""
 
-from typing import Optional
 
+from llm.gateway import AIGateway
 
 QUERY_EXPANSION_PROMPT = """Rewrite this search query to be more specific and detailed for document retrieval. 
 Add relevant synonyms and related terms. Output ONLY the expanded query, nothing else.
@@ -15,14 +15,12 @@ class QueryProcessor:
     """Processes and expands queries before retrieval."""
     
     def __init__(self, gateway=None, model: str = None):
-        """Initialize the query processor."""
         self._gateway = gateway
         self.model = model
     
     @property
     def gateway(self):
         if self._gateway is None:
-            from llm.gateway import AIGateway
             self._gateway = AIGateway()
         return self._gateway
     
