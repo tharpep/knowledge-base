@@ -2,7 +2,11 @@
 
 Cloud-first personal knowledge base. Ingests documents from Google Drive, chunks and embeds them with Voyage AI, stores vectors in PostgreSQL + pgvector, and exposes a hybrid retrieval API (dense + FTS → RRF → rerank).
 
-Deployed to GCP Cloud Run. All external access goes through the api-gateway `/kb/*` proxy — this service is internal.
+Deployed to GCP Cloud Run. All external access goes through the [api-gateway](https://github.com/tharpep/api-gateway) `/kb/*` proxy — this service is internal.
+
+## Ecosystem
+
+Part of a personal AI ecosystem — see [sazed](https://github.com/tharpep/sazed) for the full picture.
 
 ## Architecture
 
