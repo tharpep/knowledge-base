@@ -1,16 +1,32 @@
 """KB sync engine — Drive → kb_chunks with kb_sources change tracking."""
 
+import asyncio
 import logging
 from datetime import datetime, timezone
 from typing import Optional
 
 from core.config import get_config
 from core.database import get_pool
+from llm.gateway import AIGateway
 from rag.chunking import chunk_text
 from rag.embedder import embed_documents
 from rag.loader import DriveFileRecord, download_file, list_drive_files, parse_content
 
 logger = logging.getLogger(__name__)
+
+
+def _generate_summary(text: str) -> str:
+    """Call Haiku via the AI gateway to produce a 1-2 sentence document summary."""
+    try:
+        gw = AIGateway()
+        return gw.chat(
+            f"In 1-2 sentences, describe what this document is about and what kind of "
+            f"information it contains. Be specific about names, projects, or topics if evident. "
+            f"Reply with only the description, no preamble.\n\n{text[:2000]}"
+        )
+    except Exception as exc:
+        logger.warning(f"Summary generation failed: {exc}")
+        return ""
 
 # Stay well under Voyage's 128-input / 320K-token per-request limit
 _EMBED_BATCH = 96
@@ -20,7 +36,7 @@ async def _get_all_kb_sources(pool) -> dict[str, dict]:
     """Fetch all kb_sources rows keyed by file_id."""
     async with pool.acquire() as conn:
         rows = await conn.fetch(
-            "SELECT file_id, filename, category, modified_time, last_synced, chunk_count, status "
+            "SELECT file_id, filename, category, modified_time, last_synced, chunk_count, summary, status "
             "FROM kb_sources"
         )
     return {r["file_id"]: dict(r) for r in rows}
@@ -33,19 +49,21 @@ async def _upsert_kb_source(
     category: str,
     modified_time: str,
     chunk_count: int,
+    summary: str = "",
 ) -> None:
     """Insert or update a kb_sources record, setting last_synced to now."""
     modified_dt = datetime.fromisoformat(modified_time.replace("Z", "+00:00"))
     await conn.execute(
         """
-        INSERT INTO kb_sources (file_id, filename, category, modified_time, last_synced, chunk_count, status)
-        VALUES ($1, $2, $3, $4, NOW(), $5, 'active')
+        INSERT INTO kb_sources (file_id, filename, category, modified_time, last_synced, chunk_count, summary, status)
+        VALUES ($1, $2, $3, $4, NOW(), $5, $6, 'active')
         ON CONFLICT (file_id) DO UPDATE SET
             filename      = EXCLUDED.filename,
             category      = EXCLUDED.category,
             modified_time = EXCLUDED.modified_time,
             last_synced   = NOW(),
             chunk_count   = EXCLUDED.chunk_count,
+            summary       = EXCLUDED.summary,
             status        = 'active'
         """,
         file_id,
@@ -53,6 +71,7 @@ async def _upsert_kb_source(
         category,
         modified_dt,
         chunk_count,
+        summary,
     )
 
 
@@ -112,8 +131,10 @@ async def _remove_deleted_files(pool, file_ids: list[str]) -> None:
 
 
 def _needs_sync(file: DriveFileRecord, source: Optional[dict]) -> bool:
-    """Return True if the file is new or has been modified since last sync."""
+    """Return True if the file is new, has been modified since last sync, or has no summary."""
     if source is None:
+        return True
+    if not source.get("summary"):
         return True
     last_synced: Optional[datetime] = source.get("last_synced")
     if last_synced is None:
@@ -182,6 +203,9 @@ async def sync_drive(force: bool = False) -> dict:
                 logger.warning(f"No text extracted from '{file.name}', skipping")
                 continue
 
+            summary = await asyncio.to_thread(_generate_summary, text)
+            logger.debug(f"  summary '{file.name}': {summary[:80]!r}")
+
             chunks = chunk_text(
                 text,
                 chunk_size=config.kb_chunk_size,
@@ -212,7 +236,7 @@ async def sync_drive(force: bool = False) -> dict:
             # Update kb_sources within its own connection (outside chunk transaction)
             async with pool.acquire() as conn:
                 await _upsert_kb_source(
-                    conn, file.id, file.name, file.category, file.modified_time, inserted
+                    conn, file.id, file.name, file.category, file.modified_time, inserted, summary
                 )
 
             files_synced += 1

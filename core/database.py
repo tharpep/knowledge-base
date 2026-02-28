@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS kb_sources (
     modified_time TIMESTAMPTZ,
     last_synced   TIMESTAMPTZ,
     chunk_count   INT DEFAULT 0,
+    summary       TEXT,
     status        TEXT DEFAULT 'active'
 );
 
@@ -62,6 +63,7 @@ CREATE INDEX IF NOT EXISTS kb_sources_status_idx
 _MIGRATION_SQL = """
 ALTER TABLE kb_chunks ADD COLUMN IF NOT EXISTS source_category TEXT;
 ALTER TABLE kb_chunks DROP COLUMN IF EXISTS folder;
+ALTER TABLE kb_sources ADD COLUMN IF NOT EXISTS summary TEXT;
 """
 
 

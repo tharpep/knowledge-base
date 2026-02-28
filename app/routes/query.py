@@ -102,6 +102,48 @@ async def search_kb(body: KBSearchRequest):
         raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 
+class KBIndexEntry(BaseModel):
+    file_id: str
+    filename: str
+    category: str
+    chunk_count: int
+    summary: str | None
+
+
+class KBIndexResponse(BaseModel):
+    index: list[KBIndexEntry]
+    count: int
+
+
+@router.get("/kb/index", response_model=KBIndexResponse)
+async def kb_index():
+    """Return all active KB sources with summaries — a lightweight document directory."""
+    try:
+        pool = get_pool()
+        rows = await pool.fetch(
+            """
+            SELECT file_id, filename, category, chunk_count, summary
+            FROM kb_sources
+            WHERE status = 'active'
+            ORDER BY category, filename
+            """
+        )
+        entries = [
+            KBIndexEntry(
+                file_id=r["file_id"],
+                filename=r["filename"],
+                category=r["category"],
+                chunk_count=r["chunk_count"],
+                summary=r["summary"],
+            )
+            for r in rows
+        ]
+        return KBIndexResponse(index=entries, count=len(entries))
+    except Exception as e:
+        logger.error(f"Failed to get KB index: {e}")
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+
 @router.get("/kb/stats")
 async def kb_stats():
     """Return total chunk count and distinct file count from kb_chunks."""
