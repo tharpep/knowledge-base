@@ -224,9 +224,10 @@ async def retrieve(
         fused = fused[:top_k]
         logger.debug(f"  [5] rerank: skipped, truncated to {len(fused)} chunks")
 
-    # 6. Apply similarity threshold
+    # 6. Apply similarity threshold (only meaningful when reranking is enabled;
+    #    rerank_score stays 0.0 when reranking is skipped, so don't filter then)
     before = len(fused)
-    if threshold > 0:
+    if threshold > 0 and config.rerank_enabled:
         fused = [c for c in fused if c.rerank_score >= threshold]
     logger.debug(f"  [6] threshold ({threshold}): {before} → {len(fused)} chunks returned")
 

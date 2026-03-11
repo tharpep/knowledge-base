@@ -14,11 +14,12 @@ from rag.loader import DriveFileRecord, download_file, list_drive_files, parse_c
 
 logger = logging.getLogger(__name__)
 
+_SUMMARY_UNAVAILABLE = "[unavailable]"
 
-def _generate_summary(text: str) -> str:
+
+def _generate_summary(text: str, gw: AIGateway) -> str:
     """Call Haiku via the AI gateway to produce a 1-2 sentence document summary."""
     try:
-        gw = AIGateway()
         return gw.chat(
             f"In 1-2 sentences, describe what this document is about and what kind of "
             f"information it contains. Be specific about names, projects, or topics if evident. "
@@ -26,7 +27,7 @@ def _generate_summary(text: str) -> str:
         )
     except Exception as exc:
         logger.warning(f"Summary generation failed: {exc}")
-        return ""
+        return _SUMMARY_UNAVAILABLE
 
 # Stay well under Voyage's 128-input / 320K-token per-request limit
 _EMBED_BATCH = 96
@@ -158,6 +159,7 @@ async def sync_drive(force: bool = False) -> dict:
     """
     config = get_config()
     pool = get_pool()
+    gw = AIGateway()
 
     # All files across all KB subfolders (category comes from each file's DriveFileRecord)
     drive_files = await list_drive_files()
@@ -203,7 +205,7 @@ async def sync_drive(force: bool = False) -> dict:
                 logger.warning(f"No text extracted from '{file.name}', skipping")
                 continue
 
-            summary = await asyncio.to_thread(_generate_summary, text)
+            summary = await asyncio.to_thread(_generate_summary, text, gw)
             logger.debug(f"  summary '{file.name}': {summary[:80]!r}")
 
             chunks = chunk_text(

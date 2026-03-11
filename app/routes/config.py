@@ -35,10 +35,6 @@ class ConfigUpdateRequest(BaseModel):
     kb_chunk_size: Optional[int] = Field(None, ge=100, le=5000)
     kb_chunk_overlap: Optional[int] = Field(None, ge=0, le=500)
 
-    # Logging
-    log_output: Optional[bool] = None
-
-
 
 @router.get("/config")
 async def get_config() -> Dict[str, Any]:
@@ -78,7 +74,7 @@ async def get_config() -> Dict[str, Any]:
                 "chat_kb_use_cache": cfg.chat_kb_use_cache,
 
                 # Logging
-                "log_output": cfg.log_output,
+                "debug": cfg.debug,
             }
         }
     except Exception as e:
