@@ -1,76 +1,39 @@
-"""KB sync routes — Drive → kb_chunks sync management, plus direct (non-Drive) ingest."""
+"""KB content routes: ingest (upload, text, URL), list sources, read, and delete."""
 
 import asyncio
 import hashlib
 import logging
 import uuid
-from datetime import datetime, timezone
+from pathlib import PurePath
 
 import httpx
-from fastapi import APIRouter, HTTPException, Query, status
-from pydantic import BaseModel
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
+from pydantic import BaseModel, Field
 
-from core.config import get_config
 from core.database import get_pool
-from llm.gateway import AIGateway
-from rag.chunking import chunk_markdown, chunk_text
-from rag.embedder import embed_documents
-from rag.loader import _gateway_headers, _gateway_url
-from rag.sync import (
-    _EMBED_BATCH,
-    _contextualize_chunk,
-    _generate_summary,
-    _upsert_file_chunks,
-    _upsert_kb_source,
-    sync_drive,
-)
+from rag.loader import _gateway_headers, _gateway_url, parse_content
+from rag.pipeline import EmptyContentError, ingest_document
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-
-class SyncResponse(BaseModel):
-    files_synced: int
-    files_skipped: int
-    files_deleted: int
-    chunks_inserted: int
-    errors: list[str]
-    synced_at: str
-
-
-@router.post("/kb/sync", response_model=SyncResponse)
-async def run_sync(
-    force: bool = Query(
-        default=False,
-        description="Re-sync all files regardless of modification time",
-    ),
-):
-    """Sync KB Drive folder into kb_chunks.
-
-    By default only processes new or modified files (smart incremental sync
-    using kb_sources change tracking). Pass force=true to re-sync everything.
-    """
-    try:
-        result = await sync_drive(force=force)  # category comes from each file's Drive folder
-        return SyncResponse(**result)
-    except Exception as e:
-        logger.exception("KB sync failed")
-        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+UPLOAD_EXTENSIONS = (".pdf", ".docx", ".md", ".markdown", ".txt", ".csv")
+MAX_UPLOAD_BYTES = 15 * 1024 * 1024
 
 
 @router.get("/kb/sources")
 async def list_kb_sources():
-    """List all files tracked in kb_sources with their sync status."""
+    """List every source in the KB, newest first."""
     try:
         pool = get_pool()
         async with pool.acquire() as conn:
             rows = await conn.fetch(
                 """
-                SELECT file_id, filename, category, modified_time, last_synced,
-                       chunk_count, status
+                SELECT file_id, filename, category, origin, summary, modified_time, last_synced,
+                       chunk_count, status, length(raw_content) AS content_chars
                 FROM kb_sources
-                ORDER BY filename
+                ORDER BY last_synced DESC NULLS LAST, filename
                 """
             )
         return {
@@ -79,9 +42,12 @@ async def list_kb_sources():
                     "file_id": r["file_id"],
                     "filename": r["filename"],
                     "category": r["category"],
+                    "origin": r["origin"],
+                    "summary": r["summary"],
                     "modified_time": r["modified_time"].isoformat() if r["modified_time"] else None,
                     "last_synced": r["last_synced"].isoformat() if r["last_synced"] else None,
                     "chunk_count": r["chunk_count"],
+                    "content_chars": r["content_chars"] or 0,
                     "status": r["status"],
                 }
                 for r in rows
@@ -126,7 +92,7 @@ async def list_kb_files():
 
 @router.delete("/kb", status_code=204)
 async def clear_kb():
-    """Truncate kb_chunks and kb_sources — removes all indexed content and sync state."""
+    """Truncate kb_chunks and kb_sources — removes all indexed content."""
     try:
         pool = get_pool()
         async with pool.acquire() as conn:
@@ -137,30 +103,21 @@ async def clear_kb():
         raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 
-@router.delete("/kb/files/{drive_file_id}", status_code=204)
-async def delete_kb_file(drive_file_id: str):
-    """Remove a file's chunks from kb_chunks and mark it deleted in kb_sources."""
+@router.delete("/kb/files/{file_id}", status_code=204)
+async def delete_kb_file(file_id: str):
+    """Remove a source entirely: its chunks and its kb_sources row (including the stored text)."""
     try:
         pool = get_pool()
         async with pool.acquire() as conn:
-            result = await conn.execute(
-                "DELETE FROM kb_chunks WHERE drive_file_id = $1", drive_file_id
-            )
-            deleted_count = int(result.split()[-1])
-            if deleted_count == 0:
-                raise HTTPException(
-                    status.HTTP_404_NOT_FOUND,
-                    detail=f"No chunks found for drive_file_id={drive_file_id}",
-                )
-            await conn.execute(
-                "UPDATE kb_sources SET status = 'deleted', last_synced = NOW() "
-                "WHERE file_id = $1",
-                drive_file_id,
-            )
+            async with conn.transaction():
+                chunks = await conn.execute("DELETE FROM kb_chunks WHERE drive_file_id = $1", file_id)
+                sources = await conn.execute("DELETE FROM kb_sources WHERE file_id = $1", file_id)
+        if int(chunks.split()[-1]) == 0 and int(sources.split()[-1]) == 0:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Source not found: {file_id}")
     except HTTPException:
         raise
     except Exception as e:
-        logger.exception(f"Failed to delete KB file {drive_file_id}")
+        logger.exception(f"Failed to delete KB source {file_id}")
         raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 
@@ -168,6 +125,9 @@ class IngestTextRequest(BaseModel):
     title: str
     content: str
     category: str | None = None
+    # A caller-chosen stable id (e.g. 'journal-career-2026-10'). Re-ingesting with the same
+    # source_id replaces that source instead of adding a duplicate. No slashes: ids go in URL paths.
+    source_id: str | None = Field(None, pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,199}$")
 
 
 class IngestUrlRequest(BaseModel):
@@ -184,88 +144,54 @@ class IngestResponse(BaseModel):
     summary: str
 
 
-async def _ingest_text(file_id: str, filename: str, category: str | None, content: str, origin: str) -> IngestResponse:
-    """Shared pipeline for direct (non-Drive) ingest: summarize, chunk, embed, upsert.
+async def _ingest(file_id: str, filename: str, category: str | None, content: str, origin: str) -> IngestResponse:
+    try:
+        return IngestResponse(**await ingest_document(file_id, filename, category, content, origin))
+    except EmptyContentError as e:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
+    except Exception as e:
+        logger.exception(f"{origin} ingest failed for '{filename}'")
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
-    Reuses the exact per-file upsert helpers the Drive sync path uses, so a
-    directly-ingested doc is indistinguishable downstream from a synced one
-    except for its `origin`.
+
+@router.post("/kb/ingest/file", response_model=IngestResponse, status_code=status.HTTP_201_CREATED)
+async def ingest_file(
+    file: UploadFile = File(...),  # noqa: B008
+    category: str | None = Form(None),
+):
+    """Upload a document (PDF, DOCX, Markdown, text, CSV) and index it.
+
+    Keyed by filename, so uploading a new version of 'resume.pdf' replaces the old one.
     """
-    config = get_config()
-    gw = AIGateway()
-
-    if not content.strip():
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail="No content to ingest")
-
-    summary = await asyncio.to_thread(_generate_summary, content, gw)
-
-    is_markdown = filename.lower().endswith((".md", ".markdown"))
-    if is_markdown:
-        raw_chunks = chunk_markdown(
-            content, chunk_size=config.kb_chunk_size, overlap=config.kb_chunk_overlap
-        )
-        chunks = [
-            _contextualize_chunk(chunk, filename, summary, section_title)
-            for chunk, section_title in raw_chunks
-        ]
-    else:
-        raw_chunks = chunk_text(
-            content, chunk_size=config.kb_chunk_size, overlap=config.kb_chunk_overlap
-        )
-        chunks = [_contextualize_chunk(chunk, filename, summary) for chunk in raw_chunks]
-    if not chunks:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Content produced no chunks")
-
-    all_embeddings: list[list[float]] = []
-    for i in range(0, len(chunks), _EMBED_BATCH):
-        batch = chunks[i : i + _EMBED_BATCH]
-        all_embeddings.extend(await embed_documents(batch))
-
-    pool = get_pool()
-    inserted = await _upsert_file_chunks(
-        pool,
-        drive_file_id=file_id,
-        filename=filename,
-        source_category=category or "",
-        chunks=chunks,
-        embeddings=all_embeddings,
-    )
-
-    modified_time = datetime.now(timezone.utc).isoformat()
-    async with pool.acquire() as conn:
-        await _upsert_kb_source(
-            conn,
-            file_id,
-            filename,
-            category or "",
-            modified_time,
-            inserted,
-            summary,
-            raw_content=content,
-            origin=origin,
+    filename = PurePath(file.filename or "").name
+    if not filename.lower().endswith(UPLOAD_EXTENSIONS):
+        raise HTTPException(
+            status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail=f"Unsupported file type. Allowed: {', '.join(UPLOAD_EXTENSIONS)}",
         )
 
-    return IngestResponse(
-        file_id=file_id,
-        filename=filename,
-        category=category,
-        origin=origin,
-        chunk_count=inserted,
-        summary=summary,
-    )
+    data = await file.read(MAX_UPLOAD_BYTES + 1)
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"File is over {MAX_UPLOAD_BYTES // (1024 * 1024)} MB",
+        )
+
+    try:
+        text = await asyncio.to_thread(parse_content, data, file.content_type or "", filename)
+    except Exception as e:
+        logger.warning(f"Could not parse upload '{filename}': {e}")
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"Could not read {filename}: {e}")
+
+    file_id = f"upload:{hashlib.sha256(filename.lower().encode()).hexdigest()[:32]}"
+    return await _ingest(file_id, filename, category, text, origin="upload")
 
 
 @router.post("/kb/ingest/text", response_model=IngestResponse, status_code=status.HTTP_201_CREATED)
 async def ingest_text(body: IngestTextRequest):
-    """Directly ingest arbitrary text content — no Drive file required."""
-    file_id = f"text:{uuid.uuid4()}"
-    try:
-        return await _ingest_text(file_id, body.title, body.category, body.content, origin="text")
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.exception("Text ingest failed")
-        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    """Directly ingest arbitrary text content."""
+    file_id = f"text:{body.source_id or uuid.uuid4()}"
+    return await _ingest(file_id, body.title, body.category, body.content, origin="text")
 
 
 @router.post("/kb/ingest/url", response_model=IngestResponse, status_code=status.HTTP_201_CREATED)
@@ -286,15 +212,8 @@ async def ingest_url(body: IngestUrlRequest):
     results = data.get("results") or []
     if not results or not results[0].get("raw_content"):
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"No content extracted from {body.url}")
-    content = results[0]["raw_content"]
 
-    try:
-        return await _ingest_text(file_id, body.url, body.category, content, origin="url")
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.exception("URL ingest failed")
-        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    return await _ingest(file_id, body.url, body.category, results[0]["raw_content"], origin="url")
 
 
 @router.get("/kb/sources/{file_id}/content")
