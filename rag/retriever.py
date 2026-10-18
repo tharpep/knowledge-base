@@ -189,6 +189,10 @@ async def retrieve(
             # a pydantic-validated (ge=10, le=1000) int from our own settings, not user
             # input, so inlining it is safe.
             await conn.execute(f"SET LOCAL hnsw.ef_search = {config.hnsw_ef_search}")
+            # Iterative scans keep walking the HNSW graph until enough rows pass the
+            # metadata filter, so filtered queries don't under-return (pgvector >= 0.8.0).
+            # Relaxed order is fine because dense results are fused and re-ranked below.
+            await conn.execute("SET LOCAL hnsw.iterative_scan = relaxed_order")
 
             # 2. Dense search
             t0 = time.perf_counter()
