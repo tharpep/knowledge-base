@@ -18,6 +18,10 @@ from .routes import config, health, ingest, llm, query
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+# httpx logs every request URL at INFO, including API keys that some providers take as query
+# parameters (GNews, Google Maps, fact checks). Keep it at WARNING so keys never reach the logs.
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 def _configure_logging() -> None:
     config = get_config()
