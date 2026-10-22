@@ -54,12 +54,25 @@ def _configure_sentry() -> None:
 gateway: AIGateway = None
 
 
+def _require_api_key() -> None:
+    """Refuse to start without API_KEY unless ALLOW_NO_AUTH says this is local dev."""
+    config = get_config()
+    if config.api_key:
+        return
+    if config.allow_no_auth:
+        logger.warning("API_KEY is empty and ALLOW_NO_AUTH=true: every route is open (dev only)")
+        return
+    msg = "API_KEY is not set. Set it, or set ALLOW_NO_AUTH=true for local development."
+    raise RuntimeError(msg)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage FastAPI application lifecycle."""
     global gateway
 
     _configure_logging()
+    _require_api_key()
     _configure_sentry()
     logger.info("Starting KB Service API")
 
