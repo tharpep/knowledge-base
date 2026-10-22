@@ -1,13 +1,15 @@
-"""KB content routes: ingest (upload, text, URL), list sources, read, and delete."""
+"""KB content routes: ingest (upload, text, URL), list sources, read, export, and delete."""
 
 import asyncio
 import hashlib
 import logging
+import re
 import uuid
 from pathlib import PurePath
+from typing import Literal
 
 import httpx
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, File, Form, HTTPException, Response, UploadFile, status
 from pydantic import BaseModel, Field
 
 from core.database import get_pool
@@ -235,3 +237,25 @@ async def get_source_content(file_id: str):
         "origin": row["origin"],
         "content": row["raw_content"] or "",
     }
+
+
+@router.get("/kb/sources/{file_id}/export")
+async def export_source(file_id: str, format: Literal["md", "txt"] = "md"):  # noqa: A002
+    """Download a source's full text as a .md or .txt file."""
+    pool = get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT filename, raw_content FROM kb_sources WHERE file_id = $1 AND status = 'active'",
+            file_id,
+        )
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Source not found: {file_id}")
+
+    # Filenames can be URLs or titles, so reduce to a safe stem for the download name.
+    stem = re.sub(r"[^A-Za-z0-9._-]+", "_", PurePath(row["filename"]).stem).strip("._") or "source"
+    media_type = "text/markdown" if format == "md" else "text/plain"
+    return Response(
+        content=row["raw_content"] or "",
+        media_type=f"{media_type}; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{stem[:100]}.{format}"'},
+    )
