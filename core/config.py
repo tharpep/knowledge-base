@@ -26,7 +26,13 @@ class AppConfig(BaseSettings):
     # ===== Auth =====
     api_key: str = Field(
         default="",
-        description="API key required on all routes (X-API-Key header). Disabled when empty.",
+        description="API key required on all routes (X-API-Key header). Startup refuses an empty "
+        "key unless allow_no_auth is set.",
+    )
+    allow_no_auth: bool = Field(
+        default=False,
+        description="Local dev only: run with an empty API_KEY, which opens every route. Without it "
+        "an unset secret used to turn auth off silently, DELETE /v1/kb included.",
     )
 
     # ===== API Gateway =====
