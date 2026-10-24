@@ -9,7 +9,7 @@ pydantic-settings>=2.1.0
 httpx>=0.25.0
 
 # RAG and ML dependencies
-torch>=2.0.0
+torch>=2.14.1
 transformers>=4.30.0
 sentence-transformers>=2.2.0
 qdrant-client>=1.6.0
