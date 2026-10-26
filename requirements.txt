@@ -10,7 +10,7 @@ httpx>=0.25.0
 
 # RAG and ML dependencies
 torch>=2.0.0
-transformers>=4.30.0
+transformers>=5.20.2
 sentence-transformers>=2.2.0
 qdrant-client>=1.6.0
 
