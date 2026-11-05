@@ -22,7 +22,7 @@ Agent / local-mcp / any consumer
 
 ## API
 
-All routes require `X-API-Key` header when `API_KEY` is set. Auth is disabled when `API_KEY` is empty (local dev).
+All routes require the `X-API-Key` header. The service refuses to start with an empty `API_KEY` unless `ALLOW_NO_AUTH=true` (local dev only; it opens every route).
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -72,7 +72,7 @@ poetry install
 # Copy and fill in env vars
 cp .env.example .env
 
-# Start (auth disabled when API_KEY is empty)
+# Start (with an empty API_KEY, set ALLOW_NO_AUTH=true first)
 poetry run uvicorn app.main:app --reload
 ```
 
@@ -80,7 +80,8 @@ poetry run uvicorn app.main:app --reload
 
 | Variable | Description |
 |----------|-------------|
-| `API_KEY` | Key callers must send. Empty = auth disabled. |
+| `API_KEY` | Key callers must send. Required: startup refuses an empty one. |
+| `ALLOW_NO_AUTH` | Local dev only: `true` lets an empty `API_KEY` start, with every route open. |
 | `DATABASE_URL` | PostgreSQL connection string (`postgresql+asyncpg://...`) |
 | `VOYAGE_API_KEY` | Voyage AI key for embeddings and reranking |
 | `API_GATEWAY_URL` | api-gateway base URL |
