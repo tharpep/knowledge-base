@@ -25,7 +25,7 @@ ruff format .
 # or: black .
 ```
 
-No test suite exists yet.
+Tests: `bash scripts/check.sh` builds a Python 3.12 venv, lints `tests/` with ruff 0.17.1 and runs pytest. CI runs `poetry run pytest -q` on every PR. The tests need no database or network: `tests/conftest.py` fakes the asyncpg pool (`fake_pool`), and tests patch Voyage, the AI gateway and httpx. New or changed logic comes with tests.
 
 ## Architecture
 
